@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
@@ -100,10 +99,8 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 					panic(&exitError{code: 130})
 				}
 			}
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				exit(exitErr.ExitCode(), "command failed: %v", err)
-			}
-			return err
+			exitCode := timer.ExtractExitCode(err)
+			exit(exitCode, "command failed: %v", err)
 		}
 		return nil
 	},

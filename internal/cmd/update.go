@@ -128,6 +128,9 @@ func fetchLatestVersion() (string, error) {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
+		if (resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests) && resp.Header.Get("X-RateLimit-Remaining") == "0" {
+			return "", fmt.Errorf("GitHub API rate limit exceeded. Please try again later or set GITHUB_TOKEN environment variable")
+		}
 		return "", fmt.Errorf("github API returned %s", resp.Status)
 	}
 

@@ -43,6 +43,7 @@ func (r *Runner) Run() error {
 	pauseChan := make(chan struct{})
 	interruptChan := make(chan struct{})
 	stopChan := make(chan struct{})
+	doneChan := make(chan struct{})
 	defer func() {
 		// Ensure channel is not closed twice
 		select {
@@ -53,7 +54,7 @@ func (r *Runner) Run() error {
 	}()
 
 	// Start key listener (platform-specific)
-	go r.listenInput(pauseChan, interruptChan, stopChan)
+	go r.listenInput(pauseChan, interruptChan, stopChan, doneChan)
 
 	var paused bool
 	remaining := r.Duration
@@ -95,9 +96,9 @@ func (r *Runner) Run() error {
 		fmt.Printf("\r\x1b[K")
 	}
 
-	// Signal key listener goroutine to stop and sleep briefly to ensure fd release
+	// Signal key listener goroutine to stop and wait for it to release stdin
 	close(stopChan)
-	time.Sleep(60 * time.Millisecond)
+	<-doneChan
 
 	// Execute delayed command
 	if len(r.Command) > 0 {
@@ -107,6 +108,10 @@ func (r *Runner) Run() error {
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+
+		// Ignore signals during command execution to let the child process handle them
+		ignoreSignals()
+		defer resetSignals()
 
 		err := cmd.Run()
 		if err != nil {
