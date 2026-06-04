@@ -3,6 +3,6 @@
 
 package timer
 
-func (r *Runner) listenInput(pauseChan chan<- struct{}, stopChan <-chan struct{}) {
+func (r *Runner) listenInput(pauseChan, interruptChan chan<- struct{}, stopChan <-chan struct{}) {
 	// No-op fallback for Windows
 }

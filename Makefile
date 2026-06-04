@@ -7,8 +7,8 @@ test:
 	go test ./...
 
 lint:
-	which golangci-lint 2>/dev/null || curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b $(go env GOPATH)/bin
-	golangci-lint run ./...
+	which golangci-lint 2>/dev/null || curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b $(shell go env GOPATH)/bin
+	$(shell go env GOPATH)/bin/golangci-lint run ./...
 
 clean:
 	rm -rf bin/

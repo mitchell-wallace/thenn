@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 
@@ -30,6 +31,7 @@ var rootCmd = &cobra.Command{
 	Long: `thenn is a command-line tool that delays the start of a command with a visible countdown.
 It displays a single-line countdown showing the remaining duration and the 12-hour target time.
 Pressing the spacebar while running will pause the countdown, freezing the duration and delaying the end time.`,
+	Args:         cobra.ArbitraryArgs,
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
@@ -96,7 +98,14 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 		}
 
 		runner := timer.NewRunner(d, commandPart, quietFlag)
-		return runner.Run()
+		err = runner.Run()
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				exit(exitErr.ExitCode(), "command failed: %v", err)
+			}
+			return err
+		}
+		return nil
 	},
 }
 

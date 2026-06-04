@@ -37,6 +37,7 @@ func NewRunner(d time.Duration, cmd []string, quiet bool) *Runner {
 // Run starts the countdown, handles keyboard pausing, and executes the delayed command.
 func (r *Runner) Run() error {
 	pauseChan := make(chan struct{})
+	interruptChan := make(chan struct{})
 	stopChan := make(chan struct{})
 	defer func() {
 		// Ensure channel is not closed twice
@@ -48,7 +49,7 @@ func (r *Runner) Run() error {
 	}()
 
 	// Start key listener (platform-specific)
-	go r.listenInput(pauseChan, stopChan)
+	go r.listenInput(pauseChan, interruptChan, stopChan)
 
 	var paused bool
 	remaining := r.Duration
@@ -61,6 +62,11 @@ func (r *Runner) Run() error {
 
 	for remaining > 0 {
 		select {
+		case <-interruptChan:
+			if !r.Quiet {
+				fmt.Println()
+			}
+			return fmt.Errorf("interrupted")
 		case <-pauseChan:
 			paused = !paused
 			if !paused {
@@ -100,10 +106,7 @@ func (r *Runner) Run() error {
 
 		err := cmd.Run()
 		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				os.Exit(exitErr.ExitCode())
-			}
-			return fmt.Errorf("failed to run command: %w", err)
+			return err
 		}
 	}
 

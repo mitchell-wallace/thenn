@@ -31,16 +31,14 @@ var updateCmd = &cobra.Command{
 Prints the current and latest versions. If a newer version is available,
 prompts for confirmation before running the install script unless --yes is set.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var output string
 		if version == "" || version == "dev" {
-			output = "Current version: dev (cannot check for updates)"
 			if jsonOutput {
 				printJSON(map[string]interface{}{
 					"currentVersion": "dev",
 					"error":          "cannot check for updates",
 				})
 			} else {
-				fmt.Println(output)
+				fmt.Println("Current version: dev (cannot check for updates)")
 			}
 			return
 		}
@@ -56,7 +54,6 @@ prompts for confirmation before running the install script unless --yes is set.`
 		}
 
 		if cmp >= 0 {
-			output = fmt.Sprintf("Current version: %s\nLatest version:  %s\nYou are up to date.", version, latest)
 			if jsonOutput {
 				printJSON(map[string]interface{}{
 					"currentVersion": version,
@@ -72,7 +69,6 @@ prompts for confirmation before running the install script unless --yes is set.`
 		}
 
 		if !updateYes {
-			output = fmt.Sprintf("Current version: %s\nLatest version:  %s\nUpdate available.", version, latest)
 			if jsonOutput {
 				printJSON(map[string]interface{}{
 					"currentVersion": version,
@@ -91,7 +87,6 @@ prompts for confirmation before running the install script unless --yes is set.`
 			}
 			response = strings.TrimSpace(strings.ToLower(response))
 			if response != "" && response != "y" && response != "yes" {
-				output = fmt.Sprintf("Current version: %s\nLatest version:  %s\nUpdate cancelled.", version, latest)
 				fmt.Println("Update cancelled.")
 				return
 			}
@@ -102,8 +97,6 @@ prompts for confirmation before running the install script unless --yes is set.`
 		if err := installLatestVersionFn(); err != nil {
 			exit(2, "update: install failed: %v", err)
 		}
-		output = fmt.Sprintf("Current version: %s\nLatest version:  %s\nUpdate installed.", version, latest)
-		_ = output // make linter happy if unused
 		if jsonOutput {
 			printJSON(map[string]interface{}{
 				"currentVersion": version,
