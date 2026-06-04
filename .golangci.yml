@@ -1,0 +1,92 @@
+version: "2"
+linters:
+  default: standard
+  enable:
+    - errcheck
+    - gosec
+    - gocritic
+    - misspell
+    - nilnil
+  settings:
+    gocritic:
+      enabled-checks:
+        - appendAssign
+        - assignOp
+        - badCall
+        - badCond
+        - boolExprSimplify
+        - builtinShadow
+        - captLocal
+        - caseOrder
+        - commentedOutCode
+        - commentedOutImport
+        - defaultCaseOrder
+        - deprecatedComment
+        - dupArg
+        - dupBranchBody
+        - dupCase
+        - dupSubExpr
+        - elseif
+        - emptyFallthrough
+        - equalFold
+        - evalOrder
+        - exitAfterDefer
+        - filepathJoin
+        - flagDeref
+        - flagName
+        - hexLiteral
+        - hugeParam
+        - ifElseChain
+        - importShadow
+        - indexAlloc
+        - initClause
+        - mapKey
+        - newDeref
+        - nilValReturn
+        - octalLiteral
+        - offBy1
+        - paramTypeCombine
+        - preferFilepathJoin
+        - preferFprint
+        - preferStringWriter
+        - preferWriteByte
+        - ptrToRefParam
+        - rangeExprCopy
+        - rangeValCopy
+        - redundantSprint
+        - regexpPattern
+        - regexpSimplify
+        - ruleguard
+        - singleCaseSwitch
+        - sloppyLen
+        - sloppyReassign
+        - stringConcatSimplify
+        - switchTrue
+        - timeExprSimplify
+        - tooManyResultsChecker
+        - truncateCmp
+        - typeAssertChain
+        - typeSwitchVar
+        - typeUnparen
+        - underef
+        - unlabelStmt
+        - unlambda
+        - unslice
+        - valSwap
+        - weakCond
+        - yodaStyleExpr
+    gosec:
+      excludes:
+        - G115
+        - G204
+        - G301
+        - G304
+        - G306
+        - G703
+  exclusions:
+    paths:
+      - _test.go$
+formatters:
+  enable:
+    - gofmt
+    - goimports
