@@ -1,6 +1,7 @@
 package timer
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,6 +18,9 @@ var (
 	targetStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("105"))
 	pausedStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true)
 )
+
+// ErrInterrupted is returned when the user interrupts execution (Ctrl+C).
+var ErrInterrupted = errors.New("interrupted")
 
 // Runner represents the countdown runner configuration and execution state.
 type Runner struct {
@@ -66,7 +70,7 @@ func (r *Runner) Run() error {
 			if !r.Quiet {
 				fmt.Println()
 			}
-			return fmt.Errorf("interrupted")
+			return ErrInterrupted
 		case <-pauseChan:
 			paused = !paused
 			if !paused {

@@ -5,7 +5,6 @@ package timer
 
 import (
 	"os"
-	"syscall"
 	"time"
 
 	"golang.org/x/term"
@@ -25,19 +24,18 @@ func (r *Runner) listenInput(pauseChan, interruptChan chan<- struct{}, stopChan 
 		_ = term.Restore(fd, oldState)
 	}()
 
-	// Set non-blocking read on stdin so we can check stopChan in the loop
-	_ = syscall.SetNonblock(fd, true)
-	defer func() {
-		_ = syscall.SetNonblock(fd, false)
-	}()
-
 	var buf [1]byte
 	for {
 		select {
 		case <-stopChan:
 			return
 		default:
+			// Set a short read deadline so we can periodically check stopChan
+			_ = os.Stdin.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
 			n, err := os.Stdin.Read(buf[:])
+			// Reset deadline
+			_ = os.Stdin.SetReadDeadline(time.Time{})
+
 			if err == nil && n > 0 {
 				switch buf[0] {
 				case ' ':
@@ -53,7 +51,6 @@ func (r *Runner) listenInput(pauseChan, interruptChan chan<- struct{}, stopChan 
 					return
 				}
 			}
-			time.Sleep(50 * time.Millisecond)
 		}
 	}
 }

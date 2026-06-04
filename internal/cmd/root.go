@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -31,8 +32,9 @@ var rootCmd = &cobra.Command{
 	Long: `thenn is a command-line tool that delays the start of a command with a visible countdown.
 It displays a single-line countdown showing the remaining duration and the 12-hour target time.
 Pressing the spacebar while running will pause the countdown, freezing the duration and delaying the end time.`,
-	Args:         cobra.ArbitraryArgs,
-	SilenceUsage: true,
+	Args:          cobra.ArbitraryArgs,
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return fmt.Errorf("a duration must be specified (e.g. 10s, 5m, 2h)")
@@ -53,28 +55,19 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 		if dashDashIdx != -1 {
 			// Extract raw command elements after "--"
 			rawCmdParts := os.Args[dashDashIdx+1:]
-			if len(rawCmdParts) > 0 {
-				// Find where the first command argument occurs in Cobra's positional args
-				firstCmdArg := rawCmdParts[0]
-				cmdStartIdx := -1
-				for i, a := range args {
-					if a == firstCmdArg {
-						cmdStartIdx = i
-						break
-					}
-				}
-				if cmdStartIdx != -1 {
-					durationParts = args[:cmdStartIdx]
-					commandPart = args[cmdStartIdx:]
-				} else {
-					durationParts = args
-				}
+			n := len(rawCmdParts)
+			if n > 0 && len(args) >= n {
+				durationParts = args[:len(args)-n]
+				commandPart = args[len(args)-n:]
 			} else {
 				durationParts = args
 			}
 		} else {
 			// No "--" separator, scan positional args to separate duration from command
-			for i, arg := range args {
+			// The first argument is ALWAYS part of the duration.
+			durationParts = append(durationParts, args[0])
+			for i := 1; i < len(args); i++ {
+				arg := args[i]
 				isDur := false
 				if _, err := timer.ParseDuration(arg); err == nil {
 					isDur = true
@@ -100,6 +93,13 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 		runner := timer.NewRunner(d, commandPart, quietFlag)
 		err = runner.Run()
 		if err != nil {
+			if errors.Is(err, timer.ErrInterrupted) {
+				if jsonOutput {
+					exit(130, "interrupted")
+				} else {
+					panic(&exitError{code: 130})
+				}
+			}
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				exit(exitErr.ExitCode(), "command failed: %v", err)
 			}
@@ -162,7 +162,11 @@ func Execute(v string) error {
 		}
 	}
 
-	return rootCmd.Execute()
+	err := rootCmd.Execute()
+	if err != nil {
+		exit(1, "%v", err)
+	}
+	return nil
 }
 
 func printJSON(v interface{}) {
