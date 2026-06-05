@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/mitchell-wallace/thenn/internal/timer"
 	"github.com/spf13/cobra"
@@ -68,7 +69,7 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 			for i := 1; i < len(args); i++ {
 				arg := args[i]
 				isDur := false
-				if _, err := timer.ParseDuration(arg); err == nil {
+				if _, err := timer.ParseDurationOrTarget(arg, time.Now()); err == nil {
 					isDur = true
 				} else if durationArgRegex.MatchString(arg) {
 					isDur = true
@@ -84,7 +85,7 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 		}
 
 		durationStr := strings.Join(durationParts, " ")
-		d, err := timer.ParseDuration(durationStr)
+		d, err := timer.ParseDurationOrTarget(durationStr, time.Now())
 		if err != nil {
 			return fmt.Errorf("invalid duration: %w", err)
 		}

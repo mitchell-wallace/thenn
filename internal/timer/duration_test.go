@@ -92,3 +92,66 @@ func TestSuggestHint(t *testing.T) {
 		})
 	}
 }
+
+func TestParseTargetTime(t *testing.T) {
+	// Let's set a fixed time: 2026-06-05 11:00:00 local
+	now := time.Date(2026, 6, 5, 11, 0, 0, 0, time.Local)
+
+	tests := []struct {
+		input       string
+		expected    time.Duration
+		expectedOk  bool
+	}{
+		// 12-hour format today
+		{"11:05am", 5 * time.Minute, true},
+		{"1105a", 5 * time.Minute, true},
+		{"11:30a", 30 * time.Minute, true},
+		{"12:00pm", 1 * time.Hour, true},
+		{"1200p", 1 * time.Hour, true},
+		{"1:00pm", 2 * time.Hour, true},
+		{"1pm", 2 * time.Hour, true},
+		{"11p", 12 * time.Hour, true},
+		
+		// 12-hour format tomorrow (since target has passed today)
+		{"10:55am", 23*time.Hour + 55*time.Minute, true},
+		{"1055a", 23*time.Hour + 55*time.Minute, true},
+		{"12:00am", 13 * time.Hour, true}, // 12am is 00:00, next occurs tomorrow at 00:00
+		
+		// 24-hour format today
+		{"11:05", 5 * time.Minute, true},
+		{"1105", 5 * time.Minute, true},
+		{"12:00", 1 * time.Hour, true},
+		{"13:00", 2 * time.Hour, true},
+		{"1300", 2 * time.Hour, true},
+		{"23:30", 12*time.Hour + 30*time.Minute, true},
+		
+		// 24-hour format tomorrow
+		{"10:55", 23*time.Hour + 55*time.Minute, true},
+		{"1055", 23*time.Hour + 55*time.Minute, true},
+		{"00:15", 13*time.Hour + 15*time.Minute, true},
+		{"015", 13*time.Hour + 15*time.Minute, true},
+
+		// Invalid cases / Single digit minutes / Relative durations
+		{"10s", 0, false},
+		{"11:5a", 0, false},
+		{"11:5", 0, false},
+		{"9", 0, false},
+		{"13", 0, false},
+		{"am", 0, false},
+		{"pm", 0, false},
+		{"24:00", 0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			res, ok := ParseTargetTime(tt.input, now)
+			if ok != tt.expectedOk {
+				t.Errorf("ParseTargetTime(%q) ok = %v, want %v", tt.input, ok, tt.expectedOk)
+				return
+			}
+			if ok && res != tt.expected {
+				t.Errorf("ParseTargetTime(%q) = %v, want %v", tt.input, res, tt.expected)
+			}
+		})
+	}
+}

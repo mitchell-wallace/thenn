@@ -143,3 +143,78 @@ func SuggestHint(s string) string {
 	suggestedStr := strings.Join(suggestions, " ")
 	return fmt.Sprintf("Did you mean %q?", suggestedStr)
 }
+
+// ParseTargetTime parses an absolute target time in 12-hour or 24-hour format
+// and calculates the duration from now to that target time.
+// It returns the duration and a boolean indicating if it matched the target time format.
+func ParseTargetTime(s string, now time.Time) (time.Duration, bool) {
+	// Strip all whitespace
+	clean := strings.Join(strings.Fields(s), "")
+	if clean == "" {
+		return 0, false
+	}
+
+	// 12-hour format: e.g. 1105a, 11:05am, 9am, 9p
+	re12 := regexp.MustCompile(`(?i)^(1[012]|[1-9])(?::?([0-5]\d))?(a|am|p|pm)$`)
+	// 24-hour format: e.g. 13:00, 1300, 930, 09:30, 0:15
+	re24 := regexp.MustCompile(`^(0?\d|1\d|2[0-3]):?([0-5]\d)$`)
+
+	var hour, minute int
+	var isPM, isAM bool
+	var matched bool
+
+	if m := re12.FindStringSubmatch(clean); m != nil {
+		matched = true
+		h, _ := strconv.Atoi(m[1])
+		hour = h
+		if m[2] != "" {
+			mVal, _ := strconv.Atoi(m[2])
+			minute = mVal
+		}
+		suffix := strings.ToLower(m[3])
+		if suffix == "p" || suffix == "pm" {
+			isPM = true
+		} else {
+			isAM = true
+		}
+	} else if m := re24.FindStringSubmatch(clean); m != nil {
+		matched = true
+		h, _ := strconv.Atoi(m[1])
+		mVal, _ := strconv.Atoi(m[2])
+		hour = h
+		minute = mVal
+	}
+
+	if !matched {
+		return 0, false
+	}
+
+	// Adjust 12-hour values
+	if isPM {
+		if hour < 12 {
+			hour += 12
+		}
+	} else if isAM {
+		if hour == 12 {
+			hour = 0
+		}
+	}
+
+	// Construct target time for today
+	target := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+
+	// If target has already passed (or is exactly now), roll over to tomorrow
+	if target.Before(now) || target.Equal(now) {
+		target = target.AddDate(0, 0, 1)
+	}
+
+	return target.Sub(now), true
+}
+
+// ParseDurationOrTarget parses a string as either a target time or a relative duration.
+func ParseDurationOrTarget(s string, now time.Time) (time.Duration, error) {
+	if d, ok := ParseTargetTime(s, now); ok {
+		return d, nil
+	}
+	return ParseDuration(s)
+}
