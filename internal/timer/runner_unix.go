@@ -9,8 +9,8 @@ import (
 	"os/exec"
 	"os/signal"
 	"syscall"
-	"time"
 
+	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 )
 
@@ -31,30 +31,42 @@ func (r *Runner) listenInput(pauseChan, interruptChan chan<- struct{}, stopChan 
 	}()
 
 	var buf [1]byte
+	fds := []unix.PollFd{
+		{
+			Fd:     int32(fd),
+			Events: unix.POLLIN,
+		},
+	}
+
 	for {
 		select {
 		case <-stopChan:
 			return
 		default:
-			// Set a short read deadline so we can periodically check stopChan
-			_ = os.Stdin.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
-			n, err := os.Stdin.Read(buf[:])
-			// Reset deadline
-			_ = os.Stdin.SetReadDeadline(time.Time{})
-
-			if err == nil && n > 0 {
-				switch buf[0] {
-				case ' ':
-					select {
-					case pauseChan <- struct{}{}:
-					default:
+			// Poll standard input with a 50ms timeout.
+			n, err := unix.Poll(fds, 50)
+			if err != nil {
+				if errors.Is(err, syscall.EINTR) {
+					continue
+				}
+				return
+			}
+			if n > 0 && (fds[0].Revents&unix.POLLIN) != 0 {
+				nRead, err := os.Stdin.Read(buf[:])
+				if err == nil && nRead > 0 {
+					switch buf[0] {
+					case ' ':
+						select {
+						case pauseChan <- struct{}{}:
+						default:
+						}
+					case 3: // Ctrl+C
+						select {
+						case interruptChan <- struct{}{}:
+						default:
+						}
+						return
 					}
-				case 3: // Ctrl+C
-					select {
-					case interruptChan <- struct{}{}:
-					default:
-					}
-					return
 				}
 			}
 		}

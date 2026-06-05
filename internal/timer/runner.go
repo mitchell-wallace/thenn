@@ -91,14 +91,15 @@ func (r *Runner) Run() error {
 		}
 	}
 
-	// Clean up display line
-	if !r.Quiet {
-		fmt.Printf("\r\x1b[K")
-	}
-
 	// Signal key listener goroutine to stop and wait for it to release stdin
 	close(stopChan)
 	<-doneChan
+
+	// Print final completed status
+	if !r.Quiet {
+		r.printLine(0, time.Now(), false)
+		fmt.Println()
+	}
 
 	// Execute delayed command
 	if len(r.Command) > 0 {
