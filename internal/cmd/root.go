@@ -10,8 +10,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/mitchell-wallace/thenn/internal/timer"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var (
@@ -39,51 +42,146 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) == 0 {
-			return fmt.Errorf("a duration must be specified (e.g. 10s, 5m, 2h)")
-		}
-
 		var durationParts []string
 		var commandPart []string
 
-		// Detect if "--" separator was used in raw arguments
-		dashDashIdx := -1
-		for i, arg := range os.Args {
-			if arg == "--" {
-				dashDashIdx = i
-				break
+		if len(args) == 0 {
+			if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
+				return fmt.Errorf("a duration must be specified (e.g. 10s, 5m, 2h)")
 			}
-		}
 
-		if dashDashIdx != -1 {
-			// Extract raw command elements after "--"
-			rawCmdParts := os.Args[dashDashIdx+1:]
-			n := len(rawCmdParts)
-			if n > 0 && len(args) >= n {
-				durationParts = args[:len(args)-n]
-				commandPart = args[len(args)-n:]
-			} else {
-				durationParts = args
+			// Print examples banner
+			banner := lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("62")).
+				Padding(0, 1).
+				Foreground(lipgloss.Color("252")).
+				Render(
+					lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("105")).Render("💡 Post-Finish Command Examples:\n") +
+						"  • claude -c \"continue\"\n" +
+						"  • codex continue \"continue\"\n" +
+						"  • opencode -c \"continue\"\n" +
+						"  • agy --continue \"continue\"",
+				)
+			fmt.Println(banner)
+
+			var durationInput string
+			commandInput := commandFlag
+
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("How long should we delay?").
+						Placeholder("e.g. 10s, 5m, 2h 15m").
+						Value(&durationInput).
+						Validate(func(str string) error {
+							str = strings.TrimSpace(str)
+							if str == "" {
+								return fmt.Errorf("duration is required")
+							}
+							_, err := timer.ParseDurationOrTarget(str, time.Now())
+							return err
+						}),
+					huh.NewInput().
+						Title("What command should run when finished? (Optional)").
+						Placeholder("e.g. echo 'done'").
+						Value(&commandInput),
+				),
+			)
+
+			err := form.Run()
+			if err != nil {
+				if errors.Is(err, huh.ErrUserAborted) {
+					if jsonOutput {
+						exit(130, "interrupted")
+					} else {
+						panic(&exitError{code: 130})
+					}
+				}
+				return err
+			}
+
+			durationParts = []string{strings.TrimSpace(durationInput)}
+			if strings.TrimSpace(commandInput) != "" {
+				var shell string
+				var shellArgs []string
+				if runtime.GOOS == "windows" {
+					shell = os.Getenv("COMSPEC")
+					if shell == "" {
+						shell = "cmd.exe"
+					}
+					shellArgs = []string{"/c", strings.TrimSpace(commandInput)}
+				} else {
+					shell = os.Getenv("SHELL")
+					if shell == "" {
+						shell = "sh"
+					}
+					shellArgs = []string{"-c", strings.TrimSpace(commandInput)}
+				}
+				commandPart = append([]string{shell}, shellArgs...)
 			}
 		} else {
-			// No "--" separator, scan positional args to separate duration from command
-			// The first argument is ALWAYS part of the duration.
-			durationParts = append(durationParts, args[0])
-			for i := 1; i < len(args); i++ {
-				arg := args[i]
-				isDur := false
-				if _, err := timer.ParseDurationOrTarget(arg, time.Now()); err == nil {
-					isDur = true
-				} else if durationArgRegex.MatchString(arg) {
-					isDur = true
-				}
-
-				if isDur {
-					durationParts = append(durationParts, arg)
-				} else {
-					commandPart = args[i:]
+			// Detect if "--" separator was used in raw arguments
+			dashDashIdx := -1
+			for i, arg := range os.Args {
+				if arg == "--" {
+					dashDashIdx = i
 					break
 				}
+			}
+
+			if dashDashIdx != -1 {
+				// Extract raw command elements after "--"
+				rawCmdParts := os.Args[dashDashIdx+1:]
+				n := len(rawCmdParts)
+				if n > 0 && len(args) >= n {
+					durationParts = args[:len(args)-n]
+					commandPart = args[len(args)-n:]
+				} else {
+					durationParts = args
+				}
+			} else {
+				// No "--" separator, scan positional args to separate duration from command
+				// The first argument is ALWAYS part of the duration.
+				durationParts = append(durationParts, args[0])
+				for i := 1; i < len(args); i++ {
+					arg := args[i]
+					isDur := false
+					if _, err := timer.ParseDurationOrTarget(arg, time.Now()); err == nil {
+						isDur = true
+					} else if durationArgRegex.MatchString(arg) {
+						isDur = true
+					}
+
+					if isDur {
+						durationParts = append(durationParts, arg)
+					} else {
+						commandPart = args[i:]
+						break
+					}
+				}
+			}
+
+			if cmd.Flags().Changed("command") {
+				if len(commandPart) > 0 {
+					return fmt.Errorf("cannot specify both -c/--command and positional command arguments")
+				}
+				var shell string
+				var shellArgs []string
+				if runtime.GOOS == "windows" {
+					shell = os.Getenv("COMSPEC")
+					if shell == "" {
+						shell = "cmd.exe"
+					}
+					shellArgs = []string{"/c", commandFlag}
+				} else {
+					shell = os.Getenv("SHELL")
+					if shell == "" {
+						shell = "sh"
+					}
+					shellArgs = []string{"-c", commandFlag}
+				}
+				commandPart = append([]string{shell}, shellArgs...)
 			}
 		}
 
@@ -91,28 +189,6 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 		d, err := timer.ParseDurationOrTarget(durationStr, time.Now())
 		if err != nil {
 			return fmt.Errorf("invalid duration: %w", err)
-		}
-
-		if cmd.Flags().Changed("command") {
-			if len(commandPart) > 0 {
-				return fmt.Errorf("cannot specify both -c/--command and positional command arguments")
-			}
-			var shell string
-			var shellArgs []string
-			if runtime.GOOS == "windows" {
-				shell = os.Getenv("COMSPEC")
-				if shell == "" {
-					shell = "cmd.exe"
-				}
-				shellArgs = []string{"/c", commandFlag}
-			} else {
-				shell = os.Getenv("SHELL")
-				if shell == "" {
-					shell = "sh"
-				}
-				shellArgs = []string{"-c", commandFlag}
-			}
-			commandPart = append([]string{shell}, shellArgs...)
 		}
 
 		runner := timer.NewRunner(d, commandPart, quietFlag)

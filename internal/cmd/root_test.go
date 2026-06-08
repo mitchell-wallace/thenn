@@ -92,6 +92,19 @@ func TestE2E_CommandFlag_MutualExclusion(t *testing.T) {
 	}
 }
 
+func TestE2E_BareCommand_NonInteractive(t *testing.T) {
+	_, stderr, code, err := runThenn("-q")
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if code != 1 {
+		t.Errorf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(stderr, "a duration must be specified (e.g. 10s, 5m, 2h)") {
+		t.Errorf("unexpected stderr: %q", stderr)
+	}
+}
+
 func TestE2E_InvalidDuration(t *testing.T) {
 	_, stderr, code, err := runThenn("10", "-q")
 	if err != nil {
