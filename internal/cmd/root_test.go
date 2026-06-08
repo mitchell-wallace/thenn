@@ -66,6 +66,32 @@ func TestE2E_Success(t *testing.T) {
 	}
 }
 
+func TestE2E_CommandFlag_Success(t *testing.T) {
+	stdout, stderr, code, err := runThenn("10ms", "-q", "-c", "echo hello")
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if code != 0 {
+		t.Errorf("expected exit code 0, got %d. stderr: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "hello") {
+		t.Errorf("expected stdout to contain 'hello', got %q", stdout)
+	}
+}
+
+func TestE2E_CommandFlag_MutualExclusion(t *testing.T) {
+	_, stderr, code, err := runThenn("10ms", "-q", "-c", "echo hello", "echo", "world")
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if code == 0 {
+		t.Errorf("expected non-zero exit code for mutual exclusion, got 0")
+	}
+	if !strings.Contains(stderr, "cannot specify both -c/--command and positional command arguments") {
+		t.Errorf("expected stderr to explain mutual exclusion, got %q", stderr)
+	}
+}
+
 func TestE2E_InvalidDuration(t *testing.T) {
 	_, stderr, code, err := runThenn("10", "-q")
 	if err != nil {

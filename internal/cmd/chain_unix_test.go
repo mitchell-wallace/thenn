@@ -175,3 +175,62 @@ func TestE2E_TargetTime_RealTerminal(t *testing.T) {
 		t.Errorf("expected output to contain target time %q, got %q", expectedTargetStr, output)
 	}
 }
+
+func TestE2E_CommandFlag_RealTerminal(t *testing.T) {
+	pty, tty, err := openPtyTest()
+	if err != nil {
+		t.Skip("PTY creation not supported/failed:", err)
+	}
+	defer pty.Close()
+	defer tty.Close()
+
+	// Run thenn with -c in a real terminal
+	cmd := exec.Command(binaryPath, "10ms", "-c", "echo 'c-flag-success'")
+	cmd.Stdin = tty
+	cmd.Stdout = tty
+	cmd.Stderr = tty
+
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start command: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("command exited with error: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		_ = cmd.Process.Kill()
+		t.Fatal("Test timed out! Command Flag under real terminal hung.")
+	}
+
+	_ = tty.Close()
+
+	// Read output from PTY
+	readDone := make(chan struct{})
+	var output string
+	go func() {
+		var buf bytes.Buffer
+		_, _ = buf.ReadFrom(pty)
+		output = buf.String()
+		close(readDone)
+	}()
+
+	select {
+	case <-readDone:
+	case <-time.After(1 * time.Second):
+		t.Fatal("Reading from PTY timed out!")
+	}
+
+	t.Logf("PTY Output:\n%s", output)
+
+	if !strings.Contains(output, "c-flag-success") {
+		t.Errorf("expected output to contain 'c-flag-success', got %q", output)
+	}
+}
+

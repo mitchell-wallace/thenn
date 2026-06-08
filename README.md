@@ -62,6 +62,10 @@ thenn <duration> <command> [args...]
     ```bash
     thenn 10m -q -- echo "Silent delay complete!"
     ```
+*   **`-c, --command`**: Executes a command inside the default shell (`sh` on Unix, `cmd.exe` on Windows) when the countdown finishes.
+    ```bash
+    thenn 2s -c "echo 'Delayed output!'"
+    ```
 *   **`version`**: Prints the current version.
     ```bash
     thenn version

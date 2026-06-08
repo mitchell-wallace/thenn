@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -14,9 +15,10 @@ import (
 )
 
 var (
-	version    string
-	quietFlag  bool
-	jsonOutput bool
+	version     string
+	quietFlag   bool
+	jsonOutput  bool
+	commandFlag string
 )
 
 var durationArgRegex = regexp.MustCompile(`^\d+[a-zA-Z]+$`)
@@ -24,6 +26,7 @@ var durationArgRegex = regexp.MustCompile(`^\d+[a-zA-Z]+$`)
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&quietFlag, "quiet", "q", false, "disable countdown visual output")
 	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json-output", false, "emit structured JSON output")
+	rootCmd.Flags().StringVarP(&commandFlag, "command", "c", "", "command to execute when the countdown finishes")
 }
 
 var rootCmd = &cobra.Command{
@@ -88,6 +91,28 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 		d, err := timer.ParseDurationOrTarget(durationStr, time.Now())
 		if err != nil {
 			return fmt.Errorf("invalid duration: %w", err)
+		}
+
+		if cmd.Flags().Changed("command") {
+			if len(commandPart) > 0 {
+				return fmt.Errorf("cannot specify both -c/--command and positional command arguments")
+			}
+			var shell string
+			var shellArgs []string
+			if runtime.GOOS == "windows" {
+				shell = os.Getenv("COMSPEC")
+				if shell == "" {
+					shell = "cmd.exe"
+				}
+				shellArgs = []string{"/c", commandFlag}
+			} else {
+				shell = os.Getenv("SHELL")
+				if shell == "" {
+					shell = "sh"
+				}
+				shellArgs = []string{"-c", commandFlag}
+			}
+			commandPart = append([]string{shell}, shellArgs...)
 		}
 
 		runner := timer.NewRunner(d, commandPart, quietFlag)
