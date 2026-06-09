@@ -42,8 +42,8 @@ func NewRunner(d time.Duration, cmd []string, quiet bool) *Runner {
 
 // Run starts the countdown, handles keyboard pausing, and executes the delayed command.
 func (r *Runner) Run() error {
-	pauseChan := make(chan struct{})
-	interruptChan := make(chan struct{})
+	pauseChan := make(chan struct{}, 1)
+	interruptChan := make(chan struct{}, 1)
 	stopChan := make(chan struct{})
 	doneChan := make(chan struct{})
 	defer func() {
@@ -84,6 +84,8 @@ func (r *Runner) Run() error {
 			if !r.Quiet {
 				fmt.Println()
 			}
+			close(stopChan)
+			<-doneChan
 			return ErrInterrupted
 		case <-pauseChan:
 			paused = !paused
@@ -219,9 +221,8 @@ func GetDayString(target, now time.Time) string {
 // FormatEndTime formats the target end time to a 12-hour clock (with lower-case a/p) and relative day.
 func FormatEndTime(target, now time.Time) string {
 	hourMin := target.Format("3:04")
-	pmStr := target.Format("pm")
 	ampm := "a"
-	if strings.Contains(strings.ToLower(pmStr), "pm") {
+	if target.Hour() >= 12 {
 		ampm = "p"
 	}
 	dayStr := GetDayString(target, now)

@@ -33,7 +33,7 @@ prompts for confirmation before running the install script unless --yes is set.`
 	Run: func(cmd *cobra.Command, args []string) {
 		if version == "" || version == "dev" {
 			if jsonOutput {
-				printJSON(map[string]interface{}{
+				printJSON(map[string]any{
 					"currentVersion": "dev",
 					"error":          "cannot check for updates",
 				})
@@ -55,7 +55,7 @@ prompts for confirmation before running the install script unless --yes is set.`
 
 		if cmp >= 0 {
 			if jsonOutput {
-				printJSON(map[string]interface{}{
+				printJSON(map[string]any{
 					"currentVersion": version,
 					"latestVersion":  latest,
 					"upToDate":       true,
@@ -70,7 +70,7 @@ prompts for confirmation before running the install script unless --yes is set.`
 
 		if !updateYes {
 			if jsonOutput {
-				printJSON(map[string]interface{}{
+				printJSON(map[string]any{
 					"currentVersion": version,
 					"latestVersion":  latest,
 					"upToDate":       false,
@@ -98,7 +98,7 @@ prompts for confirmation before running the install script unless --yes is set.`
 			exit(2, "update: install failed: %v", err)
 		}
 		if jsonOutput {
-			printJSON(map[string]interface{}{
+			printJSON(map[string]any{
 				"currentVersion": version,
 				"latestVersion":  latest,
 				"upToDate":       false,

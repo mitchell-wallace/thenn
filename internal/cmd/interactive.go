@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -317,6 +316,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.validated = false
 			m.validationErr = nil
 			m.validationTarget = ""
+			m.err = nil
 		}
 
 	case tickMsg:
@@ -434,22 +434,7 @@ func runInteractive(prepopulatedCmd string) (string, []string, error) {
 	var commandPart []string
 	cmdStr := strings.TrimSpace(finalModel.commandInput.Value())
 	if cmdStr != "" {
-		var shell string
-		var shellArgs []string
-		if runtime.GOOS == "windows" {
-			shell = os.Getenv("COMSPEC")
-			if shell == "" {
-				shell = "cmd.exe"
-			}
-			shellArgs = []string{"/c", cmdStr}
-		} else {
-			shell = os.Getenv("SHELL")
-			if shell == "" {
-				shell = "sh"
-			}
-			shellArgs = []string{"-c", cmdStr}
-		}
-		commandPart = append([]string{shell}, shellArgs...)
+		commandPart = resolveShell(cmdStr)
 	}
 
 	return duration, commandPart, nil

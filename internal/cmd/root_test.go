@@ -127,7 +127,7 @@ func TestE2E_InvalidDuration_Json(t *testing.T) {
 		t.Errorf("expected exit code 1, got %d", code)
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &result); err != nil {
 		t.Fatalf("failed to parse JSON stderr %q: %v", stderr, err)
 	}

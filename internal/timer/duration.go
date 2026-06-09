@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+var (
+	durationRe    = regexp.MustCompile(`(\d+(?:\.\d+)?)([a-zA-Z]+)`)
+	suggestPartRe = regexp.MustCompile(`^(\d+(?:\.\d+)?)([a-zA-Z]*)$`)
+	target12Re    = regexp.MustCompile(`(?i)^(1[012]|[1-9])(?::?([0-5]\d))?(a|am|p|pm)$`)
+	target24Re    = regexp.MustCompile(`^(0?\d|1\d|2[0-3]):?([0-5]\d)$`)
+)
+
 // ParseDuration parses a string like "2h 13m 55s" or "1d 2h" into a time.Duration.
 // It supports floating point numbers like "1.5h" or "0.5m".
 func ParseDuration(s string) (time.Duration, error) {
@@ -17,8 +24,7 @@ func ParseDuration(s string) (time.Duration, error) {
 		return 0, fmt.Errorf("empty duration")
 	}
 
-	re := regexp.MustCompile(`(\d+(?:\.\d+)?)([a-zA-Z]+)`)
-	matches := re.FindAllStringSubmatch(clean, -1)
+	matches := durationRe.FindAllStringSubmatch(clean, -1)
 	if len(matches) == 0 {
 		hint := SuggestHint(s)
 		if hint != "" {
@@ -83,8 +89,6 @@ func SuggestHint(s string) string {
 		return ""
 	}
 
-	partRe := regexp.MustCompile(`^(\d+(?:\.\d+)?)([a-zA-Z]*)$`)
-
 	var suggestions []string
 	var lastUnit string
 
@@ -92,7 +96,7 @@ func SuggestHint(s string) string {
 	allNumbersOnly := true
 
 	for _, field := range fields {
-		matches := partRe.FindStringSubmatch(field)
+		matches := suggestPartRe.FindStringSubmatch(field)
 		if len(matches) == 0 {
 			return ""
 		}
@@ -154,16 +158,11 @@ func ParseTargetTime(s string, now time.Time) (time.Duration, bool) {
 		return 0, false
 	}
 
-	// 12-hour format: e.g. 1105a, 11:05am, 9am, 9p
-	re12 := regexp.MustCompile(`(?i)^(1[012]|[1-9])(?::?([0-5]\d))?(a|am|p|pm)$`)
-	// 24-hour format: e.g. 13:00, 1300, 930, 09:30, 0:15
-	re24 := regexp.MustCompile(`^(0?\d|1\d|2[0-3]):?([0-5]\d)$`)
-
 	var hour, minute int
 	var isPM, isAM bool
 	var matched bool
 
-	if m := re12.FindStringSubmatch(clean); m != nil {
+	if m := target12Re.FindStringSubmatch(clean); m != nil {
 		matched = true
 		h, _ := strconv.Atoi(m[1])
 		hour = h
@@ -177,7 +176,7 @@ func ParseTargetTime(s string, now time.Time) (time.Duration, bool) {
 		} else {
 			isAM = true
 		}
-	} else if m := re24.FindStringSubmatch(clean); m != nil {
+	} else if m := target24Re.FindStringSubmatch(clean); m != nil {
 		matched = true
 		h, _ := strconv.Atoi(m[1])
 		mVal, _ := strconv.Atoi(m[2])

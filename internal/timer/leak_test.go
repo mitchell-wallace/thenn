@@ -1,53 +1,17 @@
 package timer
 
 import (
-	"fmt"
 	"os"
 	"runtime"
-	"syscall"
 	"testing"
 	"time"
-	"unsafe"
 
+	"github.com/mitchell-wallace/thenn/internal/testutil"
 	"golang.org/x/term"
 )
 
-func openPty() (pty, tty *os.File, err error) {
-	pty, err = os.OpenFile("/dev/ptmx", os.O_RDWR, 0)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// TIOCGPTN gets the slave pty number
-	var snum int
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, pty.Fd(), uintptr(syscall.TIOCGPTN), uintptr(unsafe.Pointer(&snum)))
-	if errno != 0 {
-		pty.Close()
-		return nil, nil, errno
-	}
-
-	// TIOCSPTLCK unlocks the slave pty
-	var unlock int
-	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, pty.Fd(), uintptr(syscall.TIOCSPTLCK), uintptr(unsafe.Pointer(&unlock)))
-	if errno != 0 {
-		pty.Close()
-		return nil, nil, errno
-	}
-
-	sname := fmt.Sprintf("/dev/pts/%d", snum)
-	// Open slave using syscall with O_NONBLOCK so Go's runtime registers it with the netpoller
-	sfd, err := syscall.Open(sname, syscall.O_RDWR|syscall.O_NONBLOCK, 0)
-	if err != nil {
-		pty.Close()
-		return nil, nil, err
-	}
-	tty = os.NewFile(uintptr(sfd), sname)
-
-	return pty, tty, nil
-}
-
 func TestGoroutineLeakWithPty(t *testing.T) {
-	pty, tty, err := openPty()
+	pty, tty, err := testutil.OpenPty()
 	if err != nil {
 		t.Skip("PTY creation not supported/failed:", err)
 	}

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"runtime"
 	"strings"
 	"time"
 
@@ -23,7 +22,7 @@ var (
 	commandFlag string
 )
 
-var durationArgRegex = regexp.MustCompile(`^\d+[a-zA-Z]+$`)
+var durationArgRegex = regexp.MustCompile(`^\d+(?:\.\d+)?[a-zA-Z]+$`)
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&quietFlag, "quiet", "q", false, "disable countdown visual output")
@@ -139,22 +138,7 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 				if len(commandPart) > 0 {
 					return fmt.Errorf("cannot specify both -c/--command and positional command arguments")
 				}
-				var shell string
-				var shellArgs []string
-				if runtime.GOOS == "windows" {
-					shell = os.Getenv("COMSPEC")
-					if shell == "" {
-						shell = "cmd.exe"
-					}
-					shellArgs = []string{"/c", commandFlag}
-				} else {
-					shell = os.Getenv("SHELL")
-					if shell == "" {
-						shell = "sh"
-					}
-					shellArgs = []string{"-c", commandFlag}
-				}
-				commandPart = append([]string{shell}, shellArgs...)
+				commandPart = resolveShell(commandFlag)
 			}
 		}
 
@@ -195,10 +179,10 @@ type exitError struct {
 
 func (e *exitError) Error() string { return fmt.Sprintf("exit %d", e.code) }
 
-func exit(code int, format string, args ...interface{}) {
+func exit(code int, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	if jsonOutput {
-		b, _ := json.Marshal(map[string]interface{}{
+		b, _ := json.Marshal(map[string]any{
 			"error":    msg,
 			"exitCode": code,
 		})
@@ -232,9 +216,12 @@ func Execute(v string) error {
 
 	// Intercept version flag before Cobra so we can output custom format if required
 	for _, a := range os.Args[1:] {
+		if a == "--" {
+			break
+		}
 		if a == "--version" || a == "-v" {
 			if jsonOutput {
-				printJSON(map[string]interface{}{"version": version})
+				printJSON(map[string]any{"version": version})
 			} else {
 				fmt.Println(version)
 			}
@@ -249,7 +236,7 @@ func Execute(v string) error {
 	return nil
 }
 
-func printJSON(v interface{}) {
+func printJSON(v any) {
 	b, err := json.Marshal(v)
 	if err != nil {
 		exit(2, "json marshal: %v", err)

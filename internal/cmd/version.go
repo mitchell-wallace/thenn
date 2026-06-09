@@ -11,7 +11,7 @@ var versionCmd = &cobra.Command{
 	Short: "Print the thenn version",
 	Run: func(cmd *cobra.Command, args []string) {
 		if jsonOutput {
-			printJSON(map[string]interface{}{"version": version})
+			printJSON(map[string]any{"version": version})
 		} else {
 			fmt.Println(version)
 		}
