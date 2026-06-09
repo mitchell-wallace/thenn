@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -61,9 +63,49 @@ var (
 type tickMsg time.Time
 
 func tickCmd() tea.Cmd {
-	return tea.Tick(4*time.Second, func(t time.Time) tea.Msg {
+	return tea.Tick(5*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
+}
+
+type debounceTickMsg time.Time
+
+func debounceTick() tea.Cmd {
+	return tea.Tick(50*time.Millisecond, func(t time.Time) tea.Msg {
+		return debounceTickMsg(t)
+	})
+}
+
+type UserConfig struct {
+	AlwaysHideHints bool     `json:"always_hide_hints"`
+	DismissedHints  []string `json:"dismissed_hints"`
+}
+
+func loadConfig() UserConfig {
+	var cfg UserConfig
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return cfg
+	}
+	path := filepath.Join(dir, "thenn", "config.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return cfg
+	}
+	_ = json.Unmarshal(data, &cfg)
+	return cfg
+}
+
+func saveConfig(cfg UserConfig) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return
+	}
+	thennDir := filepath.Join(dir, "thenn")
+	_ = os.MkdirAll(thennDir, 0o755)
+	path := filepath.Join(thennDir, "config.json")
+	data, _ := json.Marshal(cfg)
+	_ = os.WriteFile(path, data, 0o644)
 }
 
 type model struct {
@@ -74,9 +116,18 @@ type model struct {
 	aborted       bool
 	err           error
 
-	hints       []string
-	hintIndex   int
-	hintsHidden bool
+	// Hint cycling & configuration
+	hints           []string
+	hintIndex       int
+	hintsHidden     bool
+	alwaysHideHints bool
+	lastTickTime    time.Time
+
+	// Debounced validation
+	lastKeyPressTime time.Time
+	validated        bool
+	validationErr    error
+	validationTarget string
 }
 
 func initialModel(prepopulatedCmd string) model {
@@ -91,23 +142,44 @@ func initialModel(prepopulatedCmd string) model {
 	c.Prompt = blurredStyle.Render("> ")
 	c.SetValue(prepopulatedCmd)
 
-	hints := []string{
+	// Build the initial list of hints
+	allHints := []string{
+		"To resume a claude task, try: claude -c \"continue\"",
+		"To resume an antigravity task, try: agy --continue \"continue\"",
+		"To resume a codex task, try: codex continue \"continue\"",
+		"To resume an opencode task, try: opencode -c \"continue\"",
 		"Run a coding agent after a usage limit resets (e.g., codex exec \"Fix broken tests\")",
-		"Use continue commands to auto-resume agents (e.g., claude -c \"continue\")",
 		"Press Spacebar while the timer is running to pause the countdown",
 	}
 
+	cfg := loadConfig()
+
+	// Filter dismissed hints
+	var activeHints []string
+	dismissedMap := make(map[string]bool)
+	for _, dh := range cfg.DismissedHints {
+		dismissedMap[dh] = true
+	}
+	for _, h := range allHints {
+		if !dismissedMap[h] {
+			activeHints = append(activeHints, h)
+		}
+	}
+
 	return model{
-		durationInput: d,
-		commandInput:  c,
-		focusIndex:    0,
-		hints:         hints,
-		hintIndex:     0,
+		durationInput:   d,
+		commandInput:    c,
+		focusIndex:      0,
+		hints:           activeHints,
+		hintIndex:       0,
+		hintsHidden:     cfg.AlwaysHideHints,
+		alwaysHideHints: cfg.AlwaysHideHints,
+		lastTickTime:    time.Now(),
 	}
 }
 
 func (m *model) Init() tea.Cmd {
-	return tea.Batch(textinput.Blink, tickCmd())
+	return tea.Batch(textinput.Blink, tickCmd(), debounceTick())
 }
 
 func (m *model) updateFocus() tea.Cmd {
@@ -136,6 +208,8 @@ func (m *model) submit() tea.Cmd {
 	_, err := timer.ParseDurationOrTarget(val, time.Now())
 	if err != nil {
 		m.err = err
+		m.validationErr = err
+		m.validated = true
 		return nil
 	}
 	m.err = nil
@@ -153,8 +227,51 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "esc":
-			m.hintsHidden = !m.hintsHidden
+			if !m.alwaysHideHints && len(m.hints) > 0 {
+				m.hintsHidden = !m.hintsHidden
+			}
 			return m, nil
+
+		case "ctrl+d":
+			if m.hintsHidden && !m.alwaysHideHints {
+				m.alwaysHideHints = true
+				cfg := loadConfig()
+				cfg.AlwaysHideHints = true
+				saveConfig(cfg)
+			}
+			return m, nil
+
+		case "ctrl+t":
+			if !m.hintsHidden && !m.alwaysHideHints && len(m.hints) > 0 {
+				// Don't show this hint again
+				ignoredHint := m.hints[m.hintIndex]
+				cfg := loadConfig()
+				cfg.DismissedHints = append(cfg.DismissedHints, ignoredHint)
+				saveConfig(cfg)
+
+				// Remove from current active list
+				m.hints = append(m.hints[:m.hintIndex], m.hints[m.hintIndex+1:]...)
+				if len(m.hints) == 0 {
+					m.alwaysHideHints = true
+					m.hintsHidden = true
+				} else {
+					m.hintIndex %= len(m.hints)
+				}
+				m.lastTickTime = time.Now()
+			}
+			return m, nil
+
+		case "left":
+			if !m.hintsHidden && len(m.hints) > 0 {
+				m.hintIndex = (m.hintIndex - 1 + len(m.hints)) % len(m.hints)
+				m.lastTickTime = time.Now()
+			}
+
+		case "right":
+			if !m.hintsHidden && len(m.hints) > 0 {
+				m.hintIndex = (m.hintIndex + 1) % len(m.hints)
+				m.lastTickTime = time.Now()
+			}
 
 		case "tab", "down":
 			m.focusIndex = (m.focusIndex + 1) % 3
@@ -194,10 +311,39 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		// Keystroke in duration input resets validation timer
+		if m.focusIndex == 0 {
+			m.lastKeyPressTime = time.Now()
+			m.validated = false
+			m.validationErr = nil
+			m.validationTarget = ""
+		}
+
 	case tickMsg:
-		if !m.quitting {
-			m.hintIndex = (m.hintIndex + 1) % len(m.hints)
+		if !m.quitting && len(m.hints) > 0 {
+			// Slower cycling: check if 5 seconds has elapsed since last update
+			if time.Since(m.lastTickTime) >= 5*time.Second {
+				m.hintIndex = (m.hintIndex + 1) % len(m.hints)
+				m.lastTickTime = time.Now()
+			}
 			return m, tickCmd()
+		}
+
+	case debounceTickMsg:
+		if !m.quitting {
+			if !m.validated && !m.lastKeyPressTime.IsZero() && time.Since(m.lastKeyPressTime) >= 300*time.Millisecond {
+				val := strings.TrimSpace(m.durationInput.Value())
+				if val != "" {
+					dur, err := timer.ParseDurationOrTarget(val, time.Now())
+					m.validationErr = err
+					if err == nil {
+						targetTime := time.Now().Add(dur)
+						m.validationTarget = timer.FormatEndTime(targetTime, time.Now())
+					}
+				}
+				m.validated = true
+			}
+			return m, debounceTick()
 		}
 	}
 
@@ -218,39 +364,36 @@ func (m *model) View() string {
 
 	var s strings.Builder
 
-	// Render tip box banner
-	if !m.hintsHidden {
-		hintText := m.hints[m.hintIndex]
-		examplesText := "💡 Post-Finish Command Examples:\n" +
-			"  • claude -c \"continue\"\n" +
-			"  • codex continue \"continue\"\n" +
-			"  • opencode -c \"continue\"\n" +
-			"  • agy --continue \"continue\"\n\n" +
-			"⏰ Delay Target Examples:\n" +
-			"  • 10s, 5m, 2h 15m\n" +
-			"  • 1500, 3:00p\n\n" +
-			"💡 Tip:\n" +
-			"  " + hintText + "\n\n" +
-			hintStyle.Render("(esc to dismiss)")
+	// Render hints banner
+	if !m.alwaysHideHints && len(m.hints) > 0 {
+		if !m.hintsHidden {
+			hintText := m.hints[m.hintIndex]
+			examplesText := "💡 Tip:\n" +
+				"  " + hintText + "\n\n" +
+				hintStyle.Render("(L/R arrow to cycle | esc to dismiss | ctrl+t to ignore this tip)")
 
-		s.WriteString(bannerStyle.Render(examplesText) + "\n\n")
-	} else {
-		s.WriteString(hintStyle.Render("[esc to show tips & examples]") + "\n\n")
+			s.WriteString(bannerStyle.Render(examplesText) + "\n\n")
+		} else {
+			s.WriteString(hintStyle.Render("[esc to show tips | ctrl+d to hide hints forever]") + "\n\n")
+		}
 	}
 
 	// Duration Input
 	s.WriteString(titleStyle.Render("How long should we delay?") + "\n")
 	s.WriteString(m.durationInput.View() + "\n")
 
-	// Real-time validation
+	// Real-time validation (debounced)
 	val := strings.TrimSpace(m.durationInput.Value())
 	if val != "" {
-		if dur, err := timer.ParseDurationOrTarget(val, time.Now()); err != nil {
-			s.WriteString(errorStyle.Render("❌ "+err.Error()) + "\n")
+		if m.validated {
+			if m.validationErr != nil {
+				s.WriteString(errorStyle.Render("❌ "+m.validationErr.Error()) + "\n")
+			} else {
+				s.WriteString(successStyle.Render("✔ Will finish at "+m.validationTarget) + "\n")
+			}
 		} else {
-			targetTime := time.Now().Add(dur)
-			targetStr := timer.FormatEndTime(targetTime, time.Now())
-			s.WriteString(successStyle.Render("✔ Will finish at "+targetStr) + "\n")
+			// typing... wait for debounce
+			s.WriteString(hintStyle.Render("   typing...") + "\n")
 		}
 	} else if m.err != nil {
 		s.WriteString(errorStyle.Render("❌ "+m.err.Error()) + "\n")
