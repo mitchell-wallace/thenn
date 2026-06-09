@@ -13,12 +13,12 @@ import (
 
 // Styling definitions
 var (
-	remainingStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
-	arrowStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("246"))
-	targetStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("105"))
+	remainingStyle    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "28", Dark: "42"}).Bold(true)
+	arrowStyle        = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "241", Dark: "246"})
+	targetStyle       = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "55", Dark: "105"})
 	pausedStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true)
-	commandLabelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Italic(true)
-	commandStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("75")).Bold(true)
+	commandLabelStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "240", Dark: "244"}).Italic(true)
+	commandStyle      = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "25", Dark: "75"}).Bold(true)
 )
 
 // ErrInterrupted is returned when the user interrupts execution (Ctrl+C).

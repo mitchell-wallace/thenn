@@ -16,38 +16,41 @@ import (
 
 var (
 	titleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("205")).
+			Foreground(lipgloss.AdaptiveColor{Light: "#d7005f", Dark: "205"}).
 			Bold(true)
 
 	focusedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("205"))
+			Foreground(lipgloss.AdaptiveColor{Light: "#d7005f", Dark: "205"})
 
 	blurredStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240"))
+			Foreground(lipgloss.AdaptiveColor{Light: "242", Dark: "240"})
 
 	docStyle = lipgloss.NewStyle().Margin(1, 2)
 
 	bannerStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("62")).
+			BorderForeground(lipgloss.AdaptiveColor{Light: "26", Dark: "62"}).
 			Padding(0, 1).
 			Width(64).
-			Foreground(lipgloss.Color("252"))
+			Foreground(lipgloss.AdaptiveColor{Light: "235", Dark: "252"})
 
 	hintStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("244")).
+			Foreground(lipgloss.AdaptiveColor{Light: "240", Dark: "244"}).
 			Italic(true)
 
+	placeholderStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.AdaptiveColor{Light: "245", Dark: "243"})
+
 	submitActiveStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("229")).
-				Background(lipgloss.Color("62")).
+				Foreground(lipgloss.AdaptiveColor{Light: "232", Dark: "229"}).
+				Background(lipgloss.AdaptiveColor{Light: "26", Dark: "62"}).
 				Bold(true).
 				Padding(0, 3).
 				MarginTop(1)
 
 	submitInactiveStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("244")).
-				Background(lipgloss.Color("236")).
+				Foreground(lipgloss.AdaptiveColor{Light: "240", Dark: "244"}).
+				Background(lipgloss.AdaptiveColor{Light: "254", Dark: "236"}).
 				Padding(0, 3).
 				MarginTop(1)
 
@@ -56,7 +59,7 @@ var (
 			Bold(true)
 
 	successStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("42"))
+			Foreground(lipgloss.AdaptiveColor{Light: "28", Dark: "42"})
 )
 
 type tickMsg time.Time
@@ -132,12 +135,14 @@ type model struct {
 func initialModel(prepopulatedCmd string) model {
 	d := textinput.New()
 	d.Placeholder = "e.g. 10s, 5m, 1500, 3:00p"
+	d.PlaceholderStyle = placeholderStyle
 	d.Focus()
 	d.Prompt = focusedStyle.Render("> ")
 	d.TextStyle = focusedStyle
 
 	c := textinput.New()
 	c.Placeholder = "e.g. echo 'done'"
+	c.PlaceholderStyle = placeholderStyle
 	c.Prompt = blurredStyle.Render("> ")
 	c.SetValue(prepopulatedCmd)
 
