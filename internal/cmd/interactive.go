@@ -136,6 +136,7 @@ func initialModel(prepopulatedCmd string) model {
 	d := textinput.New()
 	d.Placeholder = "e.g. 10s, 5m, 1500, 3:00p"
 	d.PlaceholderStyle = placeholderStyle
+	d.Width = 50
 	d.Focus()
 	d.Prompt = focusedStyle.Render("> ")
 	d.TextStyle = focusedStyle
@@ -143,6 +144,7 @@ func initialModel(prepopulatedCmd string) model {
 	c := textinput.New()
 	c.Placeholder = "e.g. echo 'done'"
 	c.PlaceholderStyle = placeholderStyle
+	c.Width = 50
 	c.Prompt = blurredStyle.Render("> ")
 	c.SetValue(prepopulatedCmd)
 
