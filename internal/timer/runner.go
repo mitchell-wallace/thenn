@@ -13,10 +13,12 @@ import (
 
 // Styling definitions
 var (
-	remainingStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
-	arrowStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("246"))
-	targetStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("105"))
-	pausedStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true)
+	remainingStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
+	arrowStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("246"))
+	targetStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("105"))
+	pausedStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true)
+	commandLabelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Italic(true)
+	commandStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("75")).Bold(true)
 )
 
 // ErrInterrupted is returned when the user interrupts execution (Ctrl+C).
@@ -62,6 +64,17 @@ func (r *Runner) Run() error {
 
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
+
+	if !r.Quiet && len(r.Command) > 0 {
+		formattedCmd := FormatCommand(r.Command)
+		if formattedCmd != "" {
+			fmt.Printf("%s\n    %s %s\n\n",
+				commandLabelStyle.Render("Scheduled command:"),
+				arrowStyle.Render(">"),
+				commandStyle.Render(formattedCmd),
+			)
+		}
+	}
 
 	r.printLine(remaining, endTime, paused)
 
@@ -213,4 +226,26 @@ func FormatEndTime(target, now time.Time) string {
 	}
 	dayStr := GetDayString(target, now)
 	return fmt.Sprintf("%s%s %s", hourMin, ampm, dayStr)
+}
+
+// FormatCommand formats the command argument list for display.
+func FormatCommand(cmd []string) string {
+	if len(cmd) == 0 {
+		return ""
+	}
+	if len(cmd) == 3 && (cmd[1] == "-c" || cmd[1] == "/c") {
+		lower0 := strings.ToLower(cmd[0])
+		if strings.HasSuffix(lower0, "sh") || strings.HasSuffix(lower0, "bash") || strings.HasSuffix(lower0, "zsh") || strings.HasSuffix(lower0, "cmd.exe") || strings.HasSuffix(lower0, "cmd") || strings.HasSuffix(lower0, "powershell.exe") || strings.HasSuffix(lower0, "powershell") {
+			return cmd[2]
+		}
+	}
+	var parts []string
+	for _, arg := range cmd {
+		if strings.Contains(arg, " ") {
+			parts = append(parts, fmt.Sprintf("%q", arg))
+		} else {
+			parts = append(parts, arg)
+		}
+	}
+	return strings.Join(parts, " ")
 }

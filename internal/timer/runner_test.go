@@ -1,6 +1,7 @@
 package timer
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -75,3 +76,28 @@ func TestFormatEndTime(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatCommand(t *testing.T) {
+	tests := []struct {
+		cmd      []string
+		expected string
+	}{
+		{[]string{}, ""},
+		{[]string{"echo", "hello"}, "echo hello"},
+		{[]string{"echo", "hello world"}, "echo \"hello world\""},
+		{[]string{"sh", "-c", "echo 'done'"}, "echo 'done'"},
+		{[]string{"/bin/bash", "-c", "ls -la"}, "ls -la"},
+		{[]string{"cmd.exe", "/c", "dir"}, "dir"},
+		{[]string{"powershell", "-c", "Get-Process"}, "Get-Process"},
+	}
+
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.cmd, " "), func(t *testing.T) {
+			got := FormatCommand(tt.cmd)
+			if got != tt.expected {
+				t.Errorf("FormatCommand(%v) = %q, want %q", tt.cmd, got, tt.expected)
+			}
+		})
+	}
+}
+
