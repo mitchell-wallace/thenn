@@ -4,14 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"regexp"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/mitchell-wallace/thenn/internal/timer"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -42,6 +41,37 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Start update check in background
+		updateNoticeChan := make(chan string, 1)
+		if version != "" && version != "dev" {
+			go func() {
+				client := &http.Client{Timeout: 2 * time.Second}
+				req, err := http.NewRequest("GET", "https://api.github.com/repos/mitchell-wallace/thenn/releases/latest", nil)
+				if err != nil {
+					return
+				}
+				req.Header.Set("Accept", "application/vnd.github+json")
+				resp, err := client.Do(req)
+				if err != nil {
+					return
+				}
+				defer func() { _ = resp.Body.Close() }()
+				if resp.StatusCode != http.StatusOK {
+					return
+				}
+				var payload struct {
+					TagName string `json:"tag_name"`
+				}
+				if err := json.NewDecoder(resp.Body).Decode(&payload); err == nil {
+					latest := strings.TrimPrefix(payload.TagName, "v")
+					cmp, err := compareVersions(version, latest)
+					if err == nil && cmp < 0 {
+						updateNoticeChan <- fmt.Sprintf("\n✨ A new version of thenn is available: v%s (current: v%s). Run 'thenn update' to update.", latest, version)
+					}
+				}
+			}()
+		}
+
 		var durationParts []string
 		var commandPart []string
 
@@ -50,48 +80,9 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 				return fmt.Errorf("a duration must be specified (e.g. 10s, 5m, 2h)")
 			}
 
-			// Print examples banner
-			banner := lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("62")).
-				Padding(0, 1).
-				Foreground(lipgloss.Color("252")).
-				Render(
-					lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("105")).Render("💡 Post-Finish Command Examples:\n") +
-						"  • claude -c \"continue\"\n" +
-						"  • codex continue \"continue\"\n" +
-						"  • opencode -c \"continue\"\n" +
-						"  • agy --continue \"continue\"",
-				)
-			fmt.Println(banner)
-
-			var durationInput string
-			commandInput := commandFlag
-
-			form := huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().
-						Title("How long should we delay?").
-						Placeholder("e.g. 10s, 5m, 2h 15m").
-						Value(&durationInput).
-						Validate(func(str string) error {
-							str = strings.TrimSpace(str)
-							if str == "" {
-								return fmt.Errorf("duration is required")
-							}
-							_, err := timer.ParseDurationOrTarget(str, time.Now())
-							return err
-						}),
-					huh.NewInput().
-						Title("What command should run when finished? (Optional)").
-						Placeholder("e.g. echo 'done'").
-						Value(&commandInput),
-				),
-			)
-
-			err := form.Run()
+			durationInput, cmdPart, err := runInteractive(commandFlag)
 			if err != nil {
-				if errors.Is(err, huh.ErrUserAborted) {
+				if errors.Is(err, timer.ErrInterrupted) {
 					if jsonOutput {
 						exit(130, "interrupted")
 					} else {
@@ -100,26 +91,8 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 				}
 				return err
 			}
-
-			durationParts = []string{strings.TrimSpace(durationInput)}
-			if strings.TrimSpace(commandInput) != "" {
-				var shell string
-				var shellArgs []string
-				if runtime.GOOS == "windows" {
-					shell = os.Getenv("COMSPEC")
-					if shell == "" {
-						shell = "cmd.exe"
-					}
-					shellArgs = []string{"/c", strings.TrimSpace(commandInput)}
-				} else {
-					shell = os.Getenv("SHELL")
-					if shell == "" {
-						shell = "sh"
-					}
-					shellArgs = []string{"-c", strings.TrimSpace(commandInput)}
-				}
-				commandPart = append([]string{shell}, shellArgs...)
-			}
+			durationParts = []string{durationInput}
+			commandPart = cmdPart
 		} else {
 			// Detect if "--" separator was used in raw arguments
 			dashDashIdx := -1
@@ -193,6 +166,14 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 
 		runner := timer.NewRunner(d, commandPart, quietFlag)
 		err = runner.Run()
+
+		// Print update notice if one was detected
+		select {
+		case notice := <-updateNoticeChan:
+			fmt.Fprintln(os.Stderr, notice)
+		default:
+		}
+
 		if err != nil {
 			if errors.Is(err, timer.ErrInterrupted) {
 				if jsonOutput {
