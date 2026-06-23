@@ -490,13 +490,12 @@ func countWrappedLines(text string, width int) int {
 			continue
 		}
 
-		runes := []rune(rawLine)
 		lineCount := 1
 		currentLineLen := 0
 		wordLen := 0
 		spaceCount := 0
 
-		for _, r := range runes {
+		for _, r := range rawLine {
 			rw := runewidth.RuneWidth(r)
 			if unicode.IsSpace(r) {
 				spaceCount++
