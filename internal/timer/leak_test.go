@@ -2,6 +2,7 @@ package timer
 
 import (
 	"os"
+	"os/signal"
 	"runtime"
 	"testing"
 	"time"
@@ -11,6 +12,11 @@ import (
 )
 
 func TestGoroutineLeakWithPty(t *testing.T) {
+	// Trigger global os/signal goroutine initialization
+	dummy := make(chan os.Signal, 1)
+	signal.Notify(dummy, os.Interrupt)
+	signal.Stop(dummy)
+
 	pty, tty, err := testutil.OpenPty()
 	if err != nil {
 		t.Skip("PTY creation not supported/failed:", err)

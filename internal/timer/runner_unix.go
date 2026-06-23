@@ -14,6 +14,8 @@ import (
 	"golang.org/x/term"
 )
 
+var terminateSignals = []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP}
+
 func (r *Runner) listenInput(pauseChan, interruptChan chan<- struct{}, stopChan <-chan struct{}, doneChan chan struct{}) {
 	defer close(doneChan)
 

@@ -11,6 +11,8 @@ import (
 	"syscall"
 )
 
+var terminateSignals = []os.Signal{os.Interrupt}
+
 func (r *Runner) listenInput(pauseChan, interruptChan chan<- struct{}, stopChan <-chan struct{}, doneChan chan struct{}) {
 	close(doneChan)
 }

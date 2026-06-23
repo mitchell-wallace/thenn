@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -199,3 +200,52 @@ func TestE2E_CommandFlag_RealTerminal(t *testing.T) {
 	}
 }
 
+func TestE2E_SignalGracefulCleanup(t *testing.T) {
+	pty, tty, err := testutil.OpenPty()
+	if err != nil {
+		t.Skip("PTY creation not supported/failed:", err)
+	}
+	defer pty.Close()
+	defer tty.Close()
+
+	// Run thenn with a long delay in the real terminal
+	cmd := exec.Command(binaryPath, "10m")
+	cmd.Stdin = tty
+	cmd.Stdout = tty
+	cmd.Stderr = tty
+
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start command: %v", err)
+	}
+
+	// Wait for thenn to initialize and put the terminal in raw mode
+	time.Sleep(200 * time.Millisecond)
+
+	// Send SIGINT to the process
+	if err := cmd.Process.Signal(syscall.SIGINT); err != nil {
+		t.Fatalf("failed to send SIGINT: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Error("expected command to exit with error, got nil")
+		} else {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				if exitErr.ExitCode() != 130 {
+					t.Errorf("expected exit code 130, got %d", exitErr.ExitCode())
+				}
+			} else {
+				t.Errorf("expected ExitError, got %v", err)
+			}
+		}
+	case <-time.After(3 * time.Second):
+		_ = cmd.Process.Kill()
+		t.Fatal("Test timed out! thenn did not exit gracefully on SIGINT.")
+	}
+}

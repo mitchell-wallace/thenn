@@ -40,9 +40,9 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Start update check in background
+		// Start update check in background (only if we're not outputting JSON)
 		updateNoticeChan := make(chan string, 1)
-		if version != "" && version != "dev" {
+		if !jsonOutput && version != "" && version != "dev" {
 			go func() {
 				client := &http.Client{Timeout: 2 * time.Second}
 				req, err := http.NewRequest("GET", "https://api.github.com/repos/mitchell-wallace/thenn/releases/latest", nil)
@@ -50,6 +50,11 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 					return
 				}
 				req.Header.Set("Accept", "application/vnd.github+json")
+				if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+					req.Header.Set("Authorization", "Bearer "+token)
+				} else if token := os.Getenv("GH_TOKEN"); token != "" {
+					req.Header.Set("Authorization", "Bearer "+token)
+				}
 				resp, err := client.Do(req)
 				if err != nil {
 					return

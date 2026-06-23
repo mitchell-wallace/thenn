@@ -7,6 +7,10 @@ default: build
 build:
 	go build -ldflags "-X main.version={{version}}" -o bin/thenn ./cmd/thenn
 
+# Run the thenn binary with arguments
+run *args:
+	go run -ldflags "-X main.version={{version}}" ./cmd/thenn {{args}}
+
 # Run all tests
 test:
 	go test ./...

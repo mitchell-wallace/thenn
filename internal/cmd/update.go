@@ -120,6 +120,11 @@ func fetchLatestVersion() (string, error) {
 		return "", err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	} else if token := os.Getenv("GH_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {

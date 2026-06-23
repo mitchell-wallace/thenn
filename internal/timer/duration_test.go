@@ -98,9 +98,9 @@ func TestParseTargetTime(t *testing.T) {
 	now := time.Date(2026, 6, 5, 11, 0, 0, 0, time.Local)
 
 	tests := []struct {
-		input       string
-		expected    time.Duration
-		expectedOk  bool
+		input      string
+		expected   time.Duration
+		expectedOk bool
 	}{
 		// 12-hour format today
 		{"11:05am", 5 * time.Minute, true},
@@ -111,12 +111,12 @@ func TestParseTargetTime(t *testing.T) {
 		{"1:00pm", 2 * time.Hour, true},
 		{"1pm", 2 * time.Hour, true},
 		{"11p", 12 * time.Hour, true},
-		
+
 		// 12-hour format tomorrow (since target has passed today)
 		{"10:55am", 23*time.Hour + 55*time.Minute, true},
 		{"1055a", 23*time.Hour + 55*time.Minute, true},
 		{"12:00am", 13 * time.Hour, true}, // 12am is 00:00, next occurs tomorrow at 00:00
-		
+
 		// 24-hour format today
 		{"11:05", 5 * time.Minute, true},
 		{"1105", 5 * time.Minute, true},
@@ -124,7 +124,7 @@ func TestParseTargetTime(t *testing.T) {
 		{"13:00", 2 * time.Hour, true},
 		{"1300", 2 * time.Hour, true},
 		{"23:30", 12*time.Hour + 30*time.Minute, true},
-		
+
 		// 24-hour format tomorrow
 		{"10:55", 23*time.Hour + 55*time.Minute, true},
 		{"1055", 23*time.Hour + 55*time.Minute, true},

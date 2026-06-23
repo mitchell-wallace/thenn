@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
 	"time"
 
@@ -55,6 +56,10 @@ func (r *Runner) Run() error {
 		}
 	}()
 
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, terminateSignals...)
+	defer signal.Stop(sigChan)
+
 	// Start key listener (platform-specific)
 	go r.listenInput(pauseChan, interruptChan, stopChan, doneChan)
 
@@ -87,6 +92,16 @@ func (r *Runner) Run() error {
 			close(stopChan)
 			<-doneChan
 			return ErrInterrupted
+		case sig := <-sigChan:
+			if !r.Quiet {
+				fmt.Println()
+			}
+			close(stopChan)
+			<-doneChan
+			if sig == os.Interrupt {
+				return ErrInterrupted
+			}
+			return fmt.Errorf("terminated by signal: %v", sig)
 		case <-pauseChan:
 			paused = !paused
 			if !paused {
@@ -109,6 +124,9 @@ func (r *Runner) Run() error {
 	// Signal key listener goroutine to stop and wait for it to release stdin
 	close(stopChan)
 	<-doneChan
+
+	// Stop receiving signals on our channel before running the command
+	signal.Stop(sigChan)
 
 	// Print final completed status
 	if !r.Quiet {

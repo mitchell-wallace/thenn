@@ -7,10 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 	"github.com/mitchell-wallace/thenn/internal/timer"
 )
 
@@ -32,6 +35,7 @@ var (
 			BorderForeground(lipgloss.AdaptiveColor{Light: "26", Dark: "62"}).
 			Padding(0, 1).
 			Width(64).
+			Height(5).
 			Foreground(lipgloss.AdaptiveColor{Light: "235", Dark: "252"})
 
 	hintStyle = lipgloss.NewStyle().
@@ -112,7 +116,7 @@ func saveConfig(cfg UserConfig) {
 
 type model struct {
 	durationInput textinput.Model
-	commandInput  textinput.Model
+	commandInput  textarea.Model
 	focusIndex    int // 0: duration, 1: command, 2: submit button
 	quitting      bool
 	aborted       bool
@@ -141,12 +145,23 @@ func initialModel(prepopulatedCmd string) model {
 	d.Prompt = focusedStyle.Render("> ")
 	d.TextStyle = focusedStyle
 
-	c := textinput.New()
+	c := textarea.New()
 	c.Placeholder = "e.g. echo 'done'"
-	c.PlaceholderStyle = placeholderStyle
-	c.Width = 50
-	c.Prompt = blurredStyle.Render("> ")
+	c.FocusedStyle.Placeholder = placeholderStyle
+	c.BlurredStyle.Placeholder = placeholderStyle
+	c.SetWidth(50)
+	initialHeight := countWrappedLines(prepopulatedCmd, 48)
+	if initialHeight < 1 {
+		initialHeight = 1
+	}
+	c.SetHeight(initialHeight)
+	c.Prompt = "> "
+	c.FocusedStyle.Prompt = focusedStyle
+	c.BlurredStyle.Prompt = blurredStyle
+	c.FocusedStyle.Text = focusedStyle
+	c.BlurredStyle.Text = blurredStyle
 	c.SetValue(prepopulatedCmd)
+	c.ShowLineNumbers = false
 
 	// Build the initial list of hints
 	allHints := []string{
@@ -192,17 +207,16 @@ func (m *model) updateFocus() tea.Cmd {
 	m.durationInput.Blur()
 	m.commandInput.Blur()
 	m.durationInput.Prompt = blurredStyle.Render("> ")
-	m.commandInput.Prompt = blurredStyle.Render("> ")
 
+	var cmd tea.Cmd
 	switch m.focusIndex {
 	case 0:
 		m.durationInput.Focus()
 		m.durationInput.Prompt = focusedStyle.Render("> ")
 	case 1:
-		m.commandInput.Focus()
-		m.commandInput.Prompt = focusedStyle.Render("> ")
+		cmd = m.commandInput.Focus()
 	}
-	return nil
+	return cmd
 }
 
 func (m *model) submit() tea.Cmd {
@@ -225,6 +239,21 @@ func (m *model) submit() tea.Cmd {
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		width := msg.Width - 4
+		if width < 20 {
+			width = 20
+		}
+		m.commandInput.SetWidth(width)
+		h := countWrappedLines(m.commandInput.Value(), width-2)
+		if h < 1 {
+			h = 1
+		}
+		m.commandInput.SetHeight(h)
+		m.durationInput, _ = m.durationInput.Update(msg)
+		m.commandInput, _ = m.commandInput.Update(msg)
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
@@ -267,13 +296,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "left":
-			if !m.hintsHidden && len(m.hints) > 0 {
-				m.hintIndex = (m.hintIndex - 1 + len(m.hints)) % len(m.hints)
-				m.lastTickTime = time.Now()
-			}
-
-		case "right":
+		case "ctrl+n":
 			if !m.hintsHidden && len(m.hints) > 0 {
 				m.hintIndex = (m.hintIndex + 1) % len(m.hints)
 				m.lastTickTime = time.Now()
@@ -360,6 +383,11 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.durationInput, cmd = m.durationInput.Update(msg)
 	case 1:
 		m.commandInput, cmd = m.commandInput.Update(msg)
+		h := countWrappedLines(m.commandInput.Value(), m.commandInput.Width()-2)
+		if h < 1 {
+			h = 1
+		}
+		m.commandInput.SetHeight(h)
 	}
 	return m, cmd
 }
@@ -377,7 +405,7 @@ func (m *model) View() string {
 			hintText := m.hints[m.hintIndex]
 			examplesText := "💡 Tip:\n" +
 				"  " + hintText + "\n\n" +
-				hintStyle.Render("(L/R arrow to cycle | esc to dismiss | ctrl+t to ignore this tip)")
+				hintStyle.Render("(ctrl+n to cycle | esc to dismiss | ctrl+t to ignore this tip)")
 
 			s.WriteString(bannerStyle.Render(examplesText) + "\n\n")
 		} else {
@@ -445,4 +473,62 @@ func runInteractive(prepopulatedCmd string) (string, []string, error) {
 	}
 
 	return duration, commandPart, nil
+}
+
+// countWrappedLines calculates the number of visual lines the text will occupy when wrapped to the given width.
+func countWrappedLines(text string, width int) int {
+	if text == "" {
+		return 1
+	}
+
+	lines := strings.Split(text, "\n")
+	totalLines := 0
+
+	for _, rawLine := range lines {
+		if rawLine == "" {
+			totalLines++
+			continue
+		}
+
+		runes := []rune(rawLine)
+		lineCount := 1
+		currentLineLen := 0
+		wordLen := 0
+		spaceCount := 0
+
+		for _, r := range runes {
+			rw := runewidth.RuneWidth(r)
+			if unicode.IsSpace(r) {
+				spaceCount++
+			} else {
+				if spaceCount > 0 {
+					if currentLineLen+wordLen+spaceCount > width {
+						lineCount++
+						currentLineLen = wordLen + spaceCount
+					} else {
+						currentLineLen += wordLen + spaceCount
+					}
+					wordLen = rw
+					spaceCount = 0
+				} else {
+					wordLen += rw
+				}
+			}
+
+			if wordLen > width {
+				lineCount++
+				wordLen = rw
+			}
+		}
+
+		if wordLen > 0 || spaceCount > 0 {
+			if currentLineLen+wordLen+spaceCount > width {
+				lineCount++
+			}
+		}
+
+		totalLines += lineCount
+	}
+
+	return totalLines
 }

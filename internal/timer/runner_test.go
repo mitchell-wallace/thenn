@@ -100,4 +100,3 @@ func TestFormatCommand(t *testing.T) {
 		})
 	}
 }
-
