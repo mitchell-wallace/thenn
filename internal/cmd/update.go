@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,18 +17,17 @@ import (
 const githubAPI = "https://api.github.com/repos/mitchell-wallace/thenn/releases/latest"
 
 var (
-	updateYes              bool
 	fetchLatestVersionFunc = fetchLatestVersion
 	installLatestVersionFn = installLatestVersion
 )
 
 var updateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Check for a newer version and optionally update",
+	Short: "Check for a newer version and update in-place",
 	Long: `Check the GitHub releases page for a newer version of thenn.
 
 Prints the current and latest versions. If a newer version is available,
-prompts for confirmation before running the install script unless --yes is set.`,
+runs the install script immediately.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if version == "" || version == "dev" {
 			if jsonOutput {
@@ -68,29 +66,7 @@ prompts for confirmation before running the install script unless --yes is set.`
 			return
 		}
 
-		if !updateYes {
-			if jsonOutput {
-				printJSON(map[string]any{
-					"currentVersion": version,
-					"latestVersion":  latest,
-					"upToDate":       false,
-					"updated":        false,
-				})
-				return
-			}
-			fmt.Printf("Current version: %s\nLatest version:  %s\n", version, latest)
-			fmt.Print("Update to latest version? [Y/n] ")
-			reader := bufio.NewReader(os.Stdin)
-			response, err := reader.ReadString('\n')
-			if err != nil {
-				exit(2, "update: read confirmation: %v", err)
-			}
-			response = strings.TrimSpace(strings.ToLower(response))
-			if response != "" && response != "y" && response != "yes" {
-				fmt.Println("Update cancelled.")
-				return
-			}
-		} else if !jsonOutput {
+		if !jsonOutput {
 			fmt.Printf("Current version: %s\nLatest version:  %s\n", version, latest)
 		}
 
@@ -109,7 +85,9 @@ prompts for confirmation before running the install script unless --yes is set.`
 }
 
 func init() {
-	updateCmd.Flags().BoolVarP(&updateYes, "yes", "y", false, "install without prompting when an update is available")
+	// Kept as a hidden no-op for backwards compatibility with scripts that pass -y/--yes.
+	updateCmd.Flags().BoolP("yes", "y", false, "deprecated: updates no longer prompt for confirmation")
+	_ = updateCmd.Flags().MarkHidden("yes")
 	rootCmd.AddCommand(updateCmd)
 }
 
