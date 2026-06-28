@@ -153,6 +153,8 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 			return fmt.Errorf("invalid duration: %w", err)
 		}
 
+		emitCommandWarnings(checkCommand(commandPart))
+
 		runner := timer.NewRunner(d, commandPart, quietFlag)
 		err = runner.Run()
 

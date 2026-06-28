@@ -16,6 +16,7 @@ If you hit a rate limit or need to delay execution, `thenn` is the perfect tool.
 - **Spacebar Pausing**: Pressing the `Space` bar during the countdown will pause the timer, freezing the duration and dynamically shifting the end time forward. Press `Space` again to resume.
 - **Dynamic Clock Target**: Displays the 12-hour local time when the countdown will finish (e.g. `2h 13m 55s -> 7:12p today`, or `tomorrow` or `YYYY.MM.DD` for other days).
 - **Graceful Command Execution**: Directly routes standard I/O (stdin/stdout/stderr) and propagates the child process exit code transparently.
+- **Warning-Only Command Preflight**: Checks delayed commands for shell syntax issues, optional ShellCheck findings, missing executables, and obvious invalid agent CLI subcommands before the timer starts. Warnings never block execution.
 - **Shell-Resilient Raw Mode**: Automatically cleans up raw terminal state on interrupt (`Ctrl+C`) or exit.
 
 ---

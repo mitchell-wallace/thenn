@@ -77,6 +77,43 @@ func TestE2E_CommandFlag_Success(t *testing.T) {
 	if !strings.Contains(stdout, "hello") {
 		t.Errorf("expected stdout to contain 'hello', got %q", stdout)
 	}
+	if strings.Contains(stderr, "thenn: warning:") {
+		t.Errorf("expected no warning for valid command, got stderr %q", stderr)
+	}
+}
+
+func TestE2E_CommandFlag_WarnsButDoesNotBlock(t *testing.T) {
+	_, stderr, code, err := runThenn("10ms", "-q", "-c", "if true; then")
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if code == 0 {
+		t.Errorf("expected delayed invalid command to fail after warning, got exit 0")
+	}
+	if !strings.Contains(stderr, "thenn: warning:") || !strings.Contains(stderr, "shell syntax") {
+		t.Errorf("expected proactive shell syntax warning, got stderr %q", stderr)
+	}
+}
+
+func TestE2E_CommandFlag_WarningJsonOutput(t *testing.T) {
+	_, stderr, code, err := runThenn("--json-output", "10ms", "-q", "-c", "if true; then")
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if code == 0 {
+		t.Errorf("expected delayed invalid command to fail after warning, got exit 0")
+	}
+	lines := strings.Split(strings.TrimSpace(stderr), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected warning and error JSON lines, got %q", stderr)
+	}
+	var warning map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &warning); err != nil {
+		t.Fatalf("failed to parse warning JSON %q: %v", lines[0], err)
+	}
+	if warning["type"] != "warning" || warning["code"] != "shell-syntax" {
+		t.Errorf("unexpected warning JSON: %#v", warning)
+	}
 }
 
 func TestE2E_CommandFlag_MutualExclusion(t *testing.T) {

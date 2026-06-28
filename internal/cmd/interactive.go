@@ -165,11 +165,12 @@ func initialModel(prepopulatedCmd string) model {
 
 	// Build the initial list of hints
 	allHints := []string{
-		"To resume a claude task, try: claude -c \"continue\"",
-		"To resume an antigravity task, try: agy --continue \"continue\"",
-		"To resume a codex task, try: codex continue \"continue\"",
-		"To resume an opencode task, try: opencode -c \"continue\"",
-		"Run a coding agent after a usage limit resets (e.g., codex exec \"Fix broken tests\")",
+		"Start a new Claude session: claude \"Fix broken tests\"; resume one: claude -c",
+		"Start a new Antigravity session: agy -i \"Fix broken tests\"; resume one: agy --continue",
+		"Start a new Codex session: codex \"Fix broken tests\"; resume one: codex resume --last",
+		"Start a new opencode session: opencode; resume one: opencode -c",
+		"Run an agent non-interactively after a limit resets: codex exec \"Fix broken tests\" or opencode run \"Fix broken tests\"",
+		"Resume non-interactively with a prompt: codex resume --last \"continue\" or opencode run -c \"continue\"",
 		"Press Spacebar while the timer is running to pause the countdown",
 	}
 
