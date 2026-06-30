@@ -130,10 +130,14 @@ type model struct {
 	lastTickTime    time.Time
 
 	// Debounced validation
-	lastKeyPressTime time.Time
-	validated        bool
-	validationErr    error
-	validationTarget string
+	durationLastKeyPressTime time.Time
+	durationValidated        bool
+	durationValidationErr    error
+	durationValidationTarget string
+	commandLastKeyPressTime  time.Time
+	commandValidated         bool
+	commandWarnings          []commandWarning
+	commandValidationValue   string
 }
 
 func initialModel(prepopulatedCmd string) model {
@@ -188,7 +192,7 @@ func initialModel(prepopulatedCmd string) model {
 		}
 	}
 
-	return model{
+	m := model{
 		durationInput:   d,
 		commandInput:    c,
 		focusIndex:      0,
@@ -198,6 +202,10 @@ func initialModel(prepopulatedCmd string) model {
 		alwaysHideHints: cfg.AlwaysHideHints,
 		lastTickTime:    time.Now(),
 	}
+	if strings.TrimSpace(prepopulatedCmd) != "" {
+		m.commandLastKeyPressTime = time.Now()
+	}
+	return m
 }
 
 func (m *model) Init() tea.Cmd {
@@ -229,8 +237,8 @@ func (m *model) submit() tea.Cmd {
 	_, err := timer.ParseDurationOrTarget(val, time.Now())
 	if err != nil {
 		m.err = err
-		m.validationErr = err
-		m.validated = true
+		m.durationValidationErr = err
+		m.durationValidated = true
 		return nil
 	}
 	m.err = nil
@@ -341,13 +349,18 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// Keystroke in duration input resets validation timer
+		// Keystrokes reset the relevant validation timer.
 		if m.focusIndex == 0 {
-			m.lastKeyPressTime = time.Now()
-			m.validated = false
-			m.validationErr = nil
-			m.validationTarget = ""
+			m.durationLastKeyPressTime = time.Now()
+			m.durationValidated = false
+			m.durationValidationErr = nil
+			m.durationValidationTarget = ""
 			m.err = nil
+		} else if m.focusIndex == 1 {
+			m.commandLastKeyPressTime = time.Now()
+			m.commandValidated = false
+			m.commandWarnings = nil
+			m.commandValidationValue = ""
 		}
 
 	case tickMsg:
@@ -362,17 +375,26 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case debounceTickMsg:
 		if !m.quitting {
-			if !m.validated && !m.lastKeyPressTime.IsZero() && time.Since(m.lastKeyPressTime) >= 300*time.Millisecond {
+			if !m.durationValidated && !m.durationLastKeyPressTime.IsZero() && time.Since(m.durationLastKeyPressTime) >= 300*time.Millisecond {
 				val := strings.TrimSpace(m.durationInput.Value())
 				if val != "" {
 					dur, err := timer.ParseDurationOrTarget(val, time.Now())
-					m.validationErr = err
+					m.durationValidationErr = err
 					if err == nil {
 						targetTime := time.Now().Add(dur)
-						m.validationTarget = timer.FormatEndTime(targetTime, time.Now())
+						m.durationValidationTarget = timer.FormatEndTime(targetTime, time.Now())
 					}
 				}
-				m.validated = true
+				m.durationValidated = true
+			}
+			if !m.commandValidated && !m.commandLastKeyPressTime.IsZero() && time.Since(m.commandLastKeyPressTime) >= 300*time.Millisecond {
+				val := strings.TrimSpace(m.commandInput.Value())
+				m.commandValidationValue = val
+				m.commandWarnings = nil
+				if val != "" {
+					m.commandWarnings = checkCommand(resolveShell(val))
+				}
+				m.commandValidated = true
 			}
 			return m, debounceTick()
 		}
@@ -421,11 +443,11 @@ func (m *model) View() string {
 	// Real-time validation (debounced)
 	val := strings.TrimSpace(m.durationInput.Value())
 	if val != "" {
-		if m.validated {
-			if m.validationErr != nil {
-				s.WriteString(errorStyle.Render("❌ "+m.validationErr.Error()) + "\n")
+		if m.durationValidated {
+			if m.durationValidationErr != nil {
+				s.WriteString(errorStyle.Render("❌ "+m.durationValidationErr.Error()) + "\n")
 			} else {
-				s.WriteString(successStyle.Render("✔ Will finish at "+m.validationTarget) + "\n")
+				s.WriteString(successStyle.Render("✔ Will finish at "+m.durationValidationTarget) + "\n")
 			}
 		} else {
 			// typing... wait for debounce
@@ -438,7 +460,18 @@ func (m *model) View() string {
 
 	// Command Input
 	s.WriteString(titleStyle.Render("What command should run when finished? (Optional)") + "\n")
-	s.WriteString(m.commandInput.View() + "\n\n")
+	s.WriteString(m.commandInput.View() + "\n")
+	cmdVal := strings.TrimSpace(m.commandInput.Value())
+	if cmdVal != "" {
+		if m.commandValidated && m.commandValidationValue == cmdVal {
+			for _, warning := range m.commandWarnings {
+				s.WriteString(errorStyle.Render("⚠ "+warning.Message) + "\n")
+			}
+		} else {
+			s.WriteString(hintStyle.Render("   checking command...") + "\n")
+		}
+	}
+	s.WriteString("\n")
 
 	// Submit button
 	var btn string
