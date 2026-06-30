@@ -177,6 +177,30 @@ func TestE2E_InvalidDuration_Json(t *testing.T) {
 	}
 }
 
+func TestProtectCommandFlags_InsertsSeparatorBeforeCommand(t *testing.T) {
+	args := protectCommandFlags([]string{"1ms", "fd", "-z"})
+	joined := strings.Join(args, " ")
+	if joined != "1ms -- fd -z" {
+		t.Fatalf("expected command flags to be protected, got %q", joined)
+	}
+}
+
+func TestProtectCommandFlags_PreservesThennFlagsBeforeCommand(t *testing.T) {
+	args := protectCommandFlags([]string{"1ms", "-q", "fd", "-z"})
+	joined := strings.Join(args, " ")
+	if joined != "1ms -q -- fd -z" {
+		t.Fatalf("expected thenn flags before command to be preserved, got %q", joined)
+	}
+}
+
+func TestProtectCommandFlags_LeavesUnknownThennFlagForCobra(t *testing.T) {
+	args := protectCommandFlags([]string{"1ms", "--quieet"})
+	joined := strings.Join(args, " ")
+	if joined != "1ms --quieet" {
+		t.Fatalf("expected unknown thenn flag to be left for Cobra, got %q", joined)
+	}
+}
+
 func TestE2E_CommandMatchingDuration(t *testing.T) {
 	_, stderr, code, err := runThenn("10ms", "-q", "--", "10ms")
 	// Since "10ms" is not an executable command, it should fail to run the command, but parsing should succeed

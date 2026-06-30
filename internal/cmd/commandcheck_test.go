@@ -46,6 +46,98 @@ func TestCheckCommand_DirectMissingExecutableWarning(t *testing.T) {
 	}
 }
 
+func TestCheckCommand_GenericUnknownOptionWarning(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper script is Unix-only")
+	}
+
+	tmp := t.TempDir()
+	fake := filepath.Join(tmp, "devtool")
+	contents := "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then\n  printf '%s\n' 'Usage: devtool [OPTIONS] [path]' 'Options:' '  -a, --all' '  -q, --quiet'\n  exit 0\nfi\n"
+	if err := os.WriteFile(fake, []byte(contents), 0o755); err != nil {
+		t.Fatalf("write fake devtool: %v", err)
+	}
+	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	warnings := checkCommand([]string{"devtool", "-z"})
+	if len(warnings) == 0 {
+		t.Fatal("expected unknown option warning")
+	}
+	if warnings[0].Code != "command-args" || !strings.Contains(warnings[0].Message, "-z") {
+		t.Fatalf("expected command-args warning for -z, got %#v", warnings[0])
+	}
+}
+
+func TestCheckCommand_GenericSubcommandWarning(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper script is Unix-only")
+	}
+
+	tmp := t.TempDir()
+	fake := filepath.Join(tmp, "devcmd")
+	contents := "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then\n  printf '%s\n' 'Usage: devcmd <command> [args]' 'Commands:' '  build  Build project' '  test   Test project'\n  exit 0\nfi\n"
+	if err := os.WriteFile(fake, []byte(contents), 0o755); err != nil {
+		t.Fatalf("write fake devcmd: %v", err)
+	}
+	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	warnings := checkCommand([]string{"devcmd", "buld"})
+	if len(warnings) == 0 {
+		t.Fatal("expected subcommand warning")
+	}
+	if warnings[0].Code != "command-args" || !strings.Contains(warnings[0].Message, "buld") {
+		t.Fatalf("expected command-args warning for buld, got %#v", warnings[0])
+	}
+}
+
+func TestCheckCommand_GitProviderSubcommandWarning(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper script is Unix-only")
+	}
+
+	tmp := t.TempDir()
+	fake := filepath.Join(tmp, "git")
+	contents := "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then\n  printf '%s\n' 'usage: git [-C <path>] <command> [<args>]'\n  exit 0\nfi\nif [ \"$1\" = \"help\" ] && [ \"$2\" = \"-a\" ]; then\n  printf '%s\n' 'Main Commands' '   status   Show status' '   worktree Manage worktrees'\n  exit 0\nfi\n"
+	if err := os.WriteFile(fake, []byte(contents), 0o755); err != nil {
+		t.Fatalf("write fake git: %v", err)
+	}
+	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	warnings := checkCommand([]string{"git", "worktrees", "list"})
+	if len(warnings) == 0 {
+		t.Fatal("expected git subcommand warning")
+	}
+	if warnings[0].Code != "command-args" || !strings.Contains(warnings[0].Message, "worktrees") {
+		t.Fatalf("expected command-args warning for worktrees, got %#v", warnings[0])
+	}
+
+	if warnings := checkCommand([]string{"git", "worktree", "list"}); len(warnings) != 0 {
+		t.Fatalf("expected no warning for valid worktree subcommand, got %#v", warnings)
+	}
+}
+
+func TestCheckCommand_GenericMissingPathOperandWarning(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper script is Unix-only")
+	}
+
+	tmp := t.TempDir()
+	fake := filepath.Join(tmp, "showfile")
+	contents := "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then\n  printf '%s\n' 'Usage: showfile [OPTION]... [FILE]...' 'Options:' '  -n, --number'\n  exit 0\nfi\n"
+	if err := os.WriteFile(fake, []byte(contents), 0o755); err != nil {
+		t.Fatalf("write fake showfile: %v", err)
+	}
+	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	warnings := checkCommand([]string{"showfile", "thenn-definitely-missing-file"})
+	if len(warnings) == 0 {
+		t.Fatal("expected missing path operand warning")
+	}
+	if warnings[0].Code != "command-args" || !strings.Contains(warnings[0].Message, "thenn-definitely-missing-file") {
+		t.Fatalf("expected command-args warning for missing path, got %#v", warnings[0])
+	}
+}
+
 func TestCheckCommand_AgentInvalidSubcommandWarning(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("test helper script is Unix-only")

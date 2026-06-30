@@ -20,6 +20,7 @@ var (
 	quietFlag   bool
 	jsonOutput  bool
 	commandFlag string
+	execArgs    []string
 )
 
 var durationArgRegex = regexp.MustCompile(`^\d+(?:\.\d+)?[a-zA-Z]+$`)
@@ -100,7 +101,7 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 		} else {
 			// Detect if "--" separator was used in raw arguments
 			dashDashIdx := -1
-			for i, arg := range os.Args {
+			for i, arg := range execArgs {
 				if arg == "--" {
 					dashDashIdx = i
 					break
@@ -109,7 +110,7 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 
 			if dashDashIdx != -1 {
 				// Extract raw command elements after "--"
-				rawCmdParts := os.Args[dashDashIdx+1:]
+				rawCmdParts := execArgs[dashDashIdx+1:]
 				n := len(rawCmdParts)
 				if n > 0 && len(args) >= n {
 					durationParts = args[:len(args)-n]
@@ -205,6 +206,8 @@ func Execute(v string) error {
 	version = v
 	rootCmd.Version = version
 	rootCmd.SetVersionTemplate("{{.Version}}\n")
+	execArgs = protectCommandFlags(os.Args[1:])
+	rootCmd.SetArgs(execArgs)
 	defer func() {
 		if r := recover(); r != nil {
 			if ee, ok := r.(*exitError); ok {
@@ -241,6 +244,80 @@ func Execute(v string) error {
 		exit(1, "%v", err)
 	}
 	return nil
+}
+
+func protectCommandFlags(args []string) []string {
+	if len(args) == 0 || hasDashDash(args) {
+		return args
+	}
+
+	startedDuration := false
+	var durationParts []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if isKnownThennBoolFlag(arg) {
+			continue
+		}
+		if arg == "-c" || arg == "--command" {
+			return args
+		}
+		if strings.HasPrefix(arg, "--command=") {
+			return args
+		}
+		if arg == "-h" || arg == "--help" || arg == "-v" || arg == "--version" {
+			return args
+		}
+		if !startedDuration {
+			if strings.HasPrefix(arg, "-") {
+				return args
+			}
+			if arg == "update" || arg == "version" {
+				return args
+			}
+			startedDuration = true
+			durationParts = append(durationParts, arg)
+			continue
+		}
+		if strings.HasPrefix(arg, "-") {
+			return args
+		}
+
+		isDur := false
+		candidate := strings.Join(append(append([]string{}, durationParts...), arg), " ")
+		if _, err := timer.ParseDurationOrTarget(candidate, time.Now()); err == nil {
+			isDur = true
+		} else if durationArgRegex.MatchString(arg) {
+			isDur = true
+		}
+		if isDur {
+			durationParts = append(durationParts, arg)
+			continue
+		}
+
+		protected := make([]string, 0, len(args)+1)
+		protected = append(protected, args[:i]...)
+		protected = append(protected, "--")
+		protected = append(protected, args[i:]...)
+		return protected
+	}
+	return args
+}
+
+func hasDashDash(args []string) bool {
+	for _, arg := range args {
+		if arg == "--" {
+			return true
+		}
+	}
+	return false
+}
+
+func isKnownThennBoolFlag(arg string) bool {
+	switch arg {
+	case "-q", "--quiet", "--json-output":
+		return true
+	}
+	return false
 }
 
 func printJSON(v any) {

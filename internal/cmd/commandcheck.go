@@ -40,10 +40,23 @@ func checkCommand(command []string) []commandWarning {
 			return warnings
 		}
 
+		warnings = checkCommandPreflight(commands)
+		if len(warnings) > 0 {
+			return warnings
+		}
+
 		return checkAgentCommands(commands)
 	}
 
-	return append(checkDirectCommand(command), checkAgentCommands([][]string{command})...)
+	warnings := checkDirectCommand(command)
+	if len(warnings) > 0 {
+		return warnings
+	}
+	warnings = checkCommandPreflight([][]string{command})
+	if len(warnings) > 0 {
+		return warnings
+	}
+	return checkAgentCommands([][]string{command})
 }
 
 func shellCommand(command []string) (string, string, bool) {
