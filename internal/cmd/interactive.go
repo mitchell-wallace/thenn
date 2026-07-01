@@ -361,13 +361,14 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Keystrokes reset the relevant validation timer.
-		if m.focusIndex == 0 {
+		switch m.focusIndex {
+		case 0:
 			m.durationLastKeyPressTime = time.Now()
 			m.durationValidated = false
 			m.durationValidationErr = nil
 			m.durationValidationTarget = ""
 			m.err = nil
-		} else if m.focusIndex == 1 {
+		case 1:
 			m.commandLastKeyPressTime = time.Now()
 			m.commandValidated = false
 			m.commandWarnings = nil
@@ -474,11 +475,12 @@ func (m *model) View() string {
 	cmdVal := strings.TrimSpace(m.commandInput.Value())
 	if cmdVal != "" {
 		if m.commandValidated && m.commandValidationValue == cmdVal {
-			if !m.commandChecking {
+			switch {
+			case !m.commandChecking:
 				s.WriteString(hintStyle.Render("   command checking disabled") + "\n")
-			} else if len(m.commandWarnings) == 0 {
+			case len(m.commandWarnings) == 0:
 				s.WriteString(successStyle.Render("✔ No issues detected") + "\n")
-			} else {
+			default:
 				for _, warning := range m.commandWarnings {
 					s.WriteString(errorStyle.Render("⚠ "+warning.Message) + "\n")
 				}
