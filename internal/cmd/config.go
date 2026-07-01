@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -24,27 +25,31 @@ var configCmd = &cobra.Command{
 			ShowTips:              !cfg.AlwaysHideHints,
 			EnableCommandChecking: !cfg.DisableCommandChecking,
 		}
+		buttonWidth := maxLabelWidth("Show tips", "Hide tips", "Reset", "Keep", "Enable", "Disable")
+		showTipsYes, showTipsNo := paddedButtonLabels(buttonWidth, "Show tips", "Hide tips")
+		resetYes, resetNo := paddedButtonLabels(buttonWidth, "Reset", "Keep")
+		enableYes, enableNo := paddedButtonLabels(buttonWidth, "Enable", "Disable")
 
 		form := huh.NewForm(
 			huh.NewGroup(
 				huh.NewConfirm().
 					Title("Show tips in the interactive prompt?").
-					Affirmative("Show tips").
-					Negative("Hide tips").
+					Affirmative(showTipsYes).
+					Negative(showTipsNo).
 					WithButtonAlignment(lipgloss.Left).
 					Value(&choices.ShowTips),
 				huh.NewConfirm().
 					Title("Reset ignored tips?").
 					Description(fmt.Sprintf("Currently ignored: %d", len(cfg.DismissedHints))).
-					Affirmative("Reset").
-					Negative("Keep").
+					Affirmative(resetYes).
+					Negative(resetNo).
 					WithButtonAlignment(lipgloss.Left).
 					Value(&choices.ResetIgnoredTips),
 				huh.NewConfirm().
 					Title("Enable delayed command checking?").
 					Description("Warn about likely command mistakes before the timer starts.").
-					Affirmative("Enable").
-					Negative("Disable").
+					Affirmative(enableYes).
+					Negative(enableNo).
 					WithButtonAlignment(lipgloss.Left).
 					Value(&choices.EnableCommandChecking),
 			),
@@ -74,4 +79,25 @@ func applyConfigChoices(cfg UserConfig, choices configChoices) UserConfig {
 		cfg.DismissedHints = nil
 	}
 	return cfg
+}
+
+func paddedButtonLabels(width int, a, b string) (string, string) {
+	return padButtonLabel(a, width), padButtonLabel(b, width)
+}
+
+func maxLabelWidth(labels ...string) int {
+	var width int
+	for _, label := range labels {
+		width = max(width, len(label))
+	}
+	return width
+}
+
+func padButtonLabel(label string, width int) string {
+	if len(label) >= width {
+		return label
+	}
+	left := (width - len(label)) / 2
+	right := width - len(label) - left
+	return strings.Repeat(" ", left) + label + strings.Repeat(" ", right)
 }
