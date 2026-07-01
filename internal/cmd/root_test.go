@@ -254,3 +254,16 @@ func TestE2E_VersionFlag(t *testing.T) {
 		t.Errorf("expected version output, got empty")
 	}
 }
+
+func TestE2E_ConfigHelp(t *testing.T) {
+	stdout, stderr, code, err := runThenn("config", "--help")
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if code != 0 {
+		t.Errorf("expected exit code 0, got %d. stderr: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "Configure thenn interactively") {
+		t.Errorf("expected config help output, got stdout %q stderr %q", stdout, stderr)
+	}
+}

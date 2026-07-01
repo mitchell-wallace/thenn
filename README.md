@@ -71,6 +71,10 @@ thenn <duration> <command> [args...]
     ```json
     { "disable_command_checking": true }
     ```
+*   **`config`**: Opens an interactive configuration form for toggling tips, resetting ignored tips, and toggling command checking.
+    ```bash
+    thenn config
+    ```
 *   **`version`**: Prints the current version.
     ```bash
     thenn version
