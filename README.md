@@ -67,6 +67,10 @@ thenn <duration> <command> [args...]
     ```bash
     thenn 2s -c "echo 'Delayed output!'"
     ```
+*   **Command checking config**: To disable warning-only command preflight, set `disable_command_checking` to `true` in the user config file at `$XDG_CONFIG_HOME/thenn/config.json` or the platform default config directory.
+    ```json
+    { "disable_command_checking": true }
+    ```
 *   **`version`**: Prints the current version.
     ```bash
     thenn version

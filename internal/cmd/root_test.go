@@ -21,6 +21,9 @@ func TestMain(m *testing.M) {
 	defer os.RemoveAll(tmpDir)
 
 	binaryPath = filepath.Join(tmpDir, "thenn")
+	if err := os.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, "config")); err != nil {
+		panic(err)
+	}
 
 	// Compile thenn binary
 	cmd := exec.Command("go", "build", "-o", binaryPath, "../../cmd/thenn")
@@ -113,6 +116,29 @@ func TestE2E_CommandFlag_WarningJsonOutput(t *testing.T) {
 	}
 	if warning["type"] != "warning" || warning["code"] != "shell-syntax" {
 		t.Errorf("unexpected warning JSON: %#v", warning)
+	}
+}
+
+func TestE2E_CommandCheckingDisabledByConfig(t *testing.T) {
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	configDir := filepath.Join(configHome, "thenn")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("make config dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.json"), []byte(`{"disable_command_checking":true}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	_, stderr, code, err := runThenn("10ms", "-q", "--", "missing-command")
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if code == 0 {
+		t.Errorf("expected delayed invalid command to fail, got exit 0")
+	}
+	if strings.Contains(stderr, "thenn: warning:") {
+		t.Errorf("expected command checking to be disabled, got stderr %q", stderr)
 	}
 }
 

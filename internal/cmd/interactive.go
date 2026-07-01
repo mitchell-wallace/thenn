@@ -45,6 +45,10 @@ var (
 	placeholderStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.AdaptiveColor{Light: "245", Dark: "243"})
 
+	hintCommandStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.AdaptiveColor{Light: "25", Dark: "75"}).
+				Bold(true)
+
 	submitActiveStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.AdaptiveColor{Light: "232", Dark: "229"}).
 				Background(lipgloss.AdaptiveColor{Light: "26", Dark: "62"}).
@@ -69,7 +73,7 @@ var (
 type tickMsg time.Time
 
 func tickCmd() tea.Cmd {
-	return tea.Tick(5*time.Second, func(t time.Time) tea.Msg {
+	return tea.Tick(15*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
@@ -83,8 +87,9 @@ func debounceTick() tea.Cmd {
 }
 
 type UserConfig struct {
-	AlwaysHideHints bool     `json:"always_hide_hints"`
-	DismissedHints  []string `json:"dismissed_hints"`
+	AlwaysHideHints        bool     `json:"always_hide_hints"`
+	DismissedHints         []string `json:"dismissed_hints"`
+	DisableCommandChecking bool     `json:"disable_command_checking"`
 }
 
 func loadConfig() UserConfig {
@@ -114,6 +119,10 @@ func saveConfig(cfg UserConfig) {
 	_ = os.WriteFile(path, data, 0o644)
 }
 
+func commandCheckingEnabled() bool {
+	return !loadConfig().DisableCommandChecking
+}
+
 type model struct {
 	durationInput textinput.Model
 	commandInput  textarea.Model
@@ -127,6 +136,7 @@ type model struct {
 	hintIndex       int
 	hintsHidden     bool
 	alwaysHideHints bool
+	commandChecking bool
 	lastTickTime    time.Time
 
 	// Debounced validation
@@ -169,13 +179,13 @@ func initialModel(prepopulatedCmd string) model {
 
 	// Build the initial list of hints
 	allHints := []string{
-		"Start a new Claude session: claude \"Fix broken tests\"; resume one: claude -c",
-		"Start a new Antigravity session: agy -i \"Fix broken tests\"; resume one: agy --continue",
-		"Start a new Codex session: codex \"Fix broken tests\"; resume one: codex resume --last",
-		"Start a new opencode session: opencode; resume one: opencode -c",
-		"Run an agent non-interactively after a limit resets: codex exec \"Fix broken tests\" or opencode run \"Fix broken tests\"",
-		"Resume non-interactively with a prompt: codex resume --last \"continue\" or opencode run -c \"continue\"",
-		"Press Spacebar while the timer is running to pause the countdown",
+		"Start a new Claude session: `claude \"Fix broken tests\"`; resume one: `claude -c`",
+		"Start a new Antigravity session: `agy -i \"Fix broken tests\"`; resume one: `agy --continue`",
+		"Start a new Codex session: `codex \"Fix broken tests\"`; resume one: `codex resume --last`",
+		"Start a new opencode session: `opencode`; resume one: `opencode -c`",
+		"Run an agent non-interactively after a limit resets: `codex exec \"Fix broken tests\"` or `opencode run \"Fix broken tests\"`",
+		"Resume non-interactively with a prompt: `codex resume --last \"continue\"` or `opencode run -c \"continue\"`",
+		"Press `Spacebar` while the timer is running to pause the countdown",
 	}
 
 	cfg := loadConfig()
@@ -187,7 +197,7 @@ func initialModel(prepopulatedCmd string) model {
 		dismissedMap[dh] = true
 	}
 	for _, h := range allHints {
-		if !dismissedMap[h] {
+		if !dismissedMap[h] && !dismissedMap[stripHintMarkup(h)] {
 			activeHints = append(activeHints, h)
 		}
 	}
@@ -200,6 +210,7 @@ func initialModel(prepopulatedCmd string) model {
 		hintIndex:       0,
 		hintsHidden:     cfg.AlwaysHideHints,
 		alwaysHideHints: cfg.AlwaysHideHints,
+		commandChecking: !cfg.DisableCommandChecking,
 		lastTickTime:    time.Now(),
 	}
 	if strings.TrimSpace(prepopulatedCmd) != "" {
@@ -365,8 +376,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tickMsg:
 		if !m.quitting && len(m.hints) > 0 {
-			// Slower cycling: check if 5 seconds has elapsed since last update
-			if time.Since(m.lastTickTime) >= 5*time.Second {
+			if time.Since(m.lastTickTime) >= 15*time.Second {
 				m.hintIndex = (m.hintIndex + 1) % len(m.hints)
 				m.lastTickTime = time.Now()
 			}
@@ -391,7 +401,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				val := strings.TrimSpace(m.commandInput.Value())
 				m.commandValidationValue = val
 				m.commandWarnings = nil
-				if val != "" {
+				if val != "" && m.commandChecking {
 					m.commandWarnings = checkCommand(resolveShell(val))
 				}
 				m.commandValidated = true
@@ -425,14 +435,14 @@ func (m *model) View() string {
 	// Render hints banner
 	if !m.alwaysHideHints && len(m.hints) > 0 {
 		if !m.hintsHidden {
-			hintText := m.hints[m.hintIndex]
+			hintText := renderHintText(m.hints[m.hintIndex])
 			examplesText := "💡 Tip:\n" +
 				"  " + hintText + "\n\n" +
-				hintStyle.Render("(ctrl+n to cycle | esc to dismiss | ctrl+t to ignore this tip)")
+				hintStyle.Render("CTRL+N: cycle tips | ESC: dismiss | CTRL+T: ignore tip")
 
 			s.WriteString(bannerStyle.Render(examplesText) + "\n\n")
 		} else {
-			s.WriteString(hintStyle.Render("[esc to show tips | ctrl+d to hide hints forever]") + "\n\n")
+			s.WriteString(hintStyle.Render("ESC: show tips | CTRL+D: hide hints forever") + "\n\n")
 		}
 	}
 
@@ -464,8 +474,14 @@ func (m *model) View() string {
 	cmdVal := strings.TrimSpace(m.commandInput.Value())
 	if cmdVal != "" {
 		if m.commandValidated && m.commandValidationValue == cmdVal {
-			for _, warning := range m.commandWarnings {
-				s.WriteString(errorStyle.Render("⚠ "+warning.Message) + "\n")
+			if !m.commandChecking {
+				s.WriteString(hintStyle.Render("   command checking disabled") + "\n")
+			} else if len(m.commandWarnings) == 0 {
+				s.WriteString(successStyle.Render("✔ No issues detected") + "\n")
+			} else {
+				for _, warning := range m.commandWarnings {
+					s.WriteString(errorStyle.Render("⚠ "+warning.Message) + "\n")
+				}
 			}
 		} else {
 			s.WriteString(hintStyle.Render("   checking command...") + "\n")
@@ -483,6 +499,38 @@ func (m *model) View() string {
 	s.WriteString(btn + "\n")
 
 	return docStyle.Render(s.String())
+}
+
+func renderHintText(text string) string {
+	var b strings.Builder
+	inCommand := false
+	var command strings.Builder
+	for _, r := range text {
+		if r == '`' {
+			if inCommand {
+				b.WriteString(hintCommandStyle.Render(command.String()))
+				command.Reset()
+			} else {
+				b.WriteString(command.String())
+				command.Reset()
+			}
+			inCommand = !inCommand
+			continue
+		}
+		if inCommand {
+			command.WriteRune(r)
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	if command.Len() > 0 {
+		b.WriteString(command.String())
+	}
+	return b.String()
+}
+
+func stripHintMarkup(text string) string {
+	return strings.ReplaceAll(text, "`", "")
 }
 
 // runInteractive runs the interactive Bubble Tea UI and returns the entered duration and command.
