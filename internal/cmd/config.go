@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 
@@ -30,18 +31,21 @@ var configCmd = &cobra.Command{
 					Title("Show tips in the interactive prompt?").
 					Affirmative("Show tips").
 					Negative("Hide tips").
+					WithButtonAlignment(lipgloss.Left).
 					Value(&choices.ShowTips),
 				huh.NewConfirm().
 					Title("Reset ignored tips?").
 					Description(fmt.Sprintf("Currently ignored: %d", len(cfg.DismissedHints))).
 					Affirmative("Reset").
 					Negative("Keep").
+					WithButtonAlignment(lipgloss.Left).
 					Value(&choices.ResetIgnoredTips),
 				huh.NewConfirm().
 					Title("Enable delayed command checking?").
 					Description("Warn about likely command mistakes before the timer starts.").
 					Affirmative("Enable").
 					Negative("Disable").
+					WithButtonAlignment(lipgloss.Left).
 					Value(&choices.EnableCommandChecking),
 			),
 		)
