@@ -90,6 +90,16 @@ func TestParseScheduleEvery(t *testing.T) {
 			wantErrContains: "below systemd timer precision",
 		},
 		{
+			name:            "fractional microsecond does not truncate",
+			tokens:          []string{"every", "1.0000001us"},
+			wantErrContains: "below nanosecond precision",
+		},
+		{
+			name:            "huge duration",
+			tokens:          []string{"every", "999999999999999999999h"},
+			wantErrContains: "too large",
+		},
+		{
 			name:            "until without value",
 			tokens:          []string{"every", "1h", "until"},
 			wantErrContains: "until must be followed",

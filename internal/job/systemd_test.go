@@ -8,8 +8,8 @@ import (
 
 func TestRenderUnits(t *testing.T) {
 	metadata := testMetadata(t)
-	metadata.CWD = "/home/test/with space"
-	units, err := RenderUnits(metadata, "/usr/local/bin/thenn")
+	metadata.CWD = "/home/test/with space "
+	units, err := RenderUnits(metadata, `/opt/$TOOLS/thenn "bin"`)
 	if err != nil {
 		t.Fatalf("RenderUnits() error = %v", err)
 	}
@@ -17,8 +17,8 @@ func TestRenderUnits(t *testing.T) {
 	serviceChecks := []string{
 		"Description=thenn job backup-daily",
 		"Type=oneshot",
-		`WorkingDirectory="/home/test/with space"`,
-		"ExecStart=/usr/local/bin/thenn job exec backup-daily",
+		`WorkingDirectory="/home/test/with space "`,
+		`ExecStart="/opt/$$TOOLS/thenn \"bin\"" job exec backup-daily`,
 	}
 	for _, check := range serviceChecks {
 		if !strings.Contains(units.Service, check) {

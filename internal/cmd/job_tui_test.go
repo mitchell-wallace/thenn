@@ -12,7 +12,7 @@ import (
 func TestJobTUIViewShowsJobsAndShortcuts(t *testing.T) {
 	m := testJobTUIModel(t)
 	view := m.View()
-	for _, want := range []string{"thenn job", "backup", "daily at 9pm", "p pause", "r resume", "tab help"} {
+	for _, want := range []string{"thenn job", "backup", "daily at 9pm", "p pause", "r resume", "? help"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("view missing %q:\n%s", want, view)
 		}

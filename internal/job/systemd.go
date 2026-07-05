@@ -112,6 +112,7 @@ var safeSystemdArgRe = regexp.MustCompile(`^[A-Za-z0-9_@%+=:,./-]+$`)
 
 func quoteSystemdArg(arg string) string {
 	arg = strings.ReplaceAll(arg, "%", "%%")
+	arg = strings.ReplaceAll(arg, "$", "$$")
 	if safeSystemdArgRe.MatchString(arg) {
 		return arg
 	}

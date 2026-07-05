@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mitchell-wallace/thenn/internal/job"
 	"github.com/spf13/cobra"
 )
+
+const jobTUIActionTimeout = 10 * time.Second
 
 type jobTUITab int
 
@@ -141,7 +144,7 @@ func (m *jobTUIModel) View() string {
 
 	bodyHeight := max(8, m.height-6)
 	header := m.renderHeader()
-	footer := jobMutedStyle.Render("up/down select  enter run  p pause  r resume  d delete  l logs  R refresh  tab help  q quit")
+	footer := jobMutedStyle.Render("up/down select  enter run  p pause  r resume  d delete  l logs  R refresh  ? help  q quit")
 	var body string
 	if m.tab == jobTabHelp {
 		body = m.renderHelp(bodyHeight)
@@ -239,6 +242,18 @@ func (m *jobTUIModel) renderJobDetails(width, height int) string {
 func (m *jobTUIModel) renderHelp(height int) string {
 	content := `Schedule syntax
 
+Keys
+
+  up/down or j/k  select job
+  enter           run selected job now
+  p               pause timer
+  r               resume timer
+  d               remove job, press twice to confirm
+  l               load recent logs
+  R               refresh jobs
+  tab, ?, esc     switch tabs/help
+  q               quit
+
   every 15m
   every 3h until 2026-07-23
   daily at 9pm
@@ -289,7 +304,9 @@ func (m *jobTUIModel) withSelected(action string, fn func(context.Context, job.M
 		m.err = "no job selected"
 		return
 	}
-	if err := fn(context.Background(), selected); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), jobTUIActionTimeout)
+	defer cancel()
+	if err := fn(ctx, selected); err != nil {
 		m.err = err.Error()
 		return
 	}
@@ -302,7 +319,9 @@ func (m *jobTUIModel) loadLogs() {
 		m.err = "no job selected"
 		return
 	}
-	logs, err := m.backend.Journal(context.Background(), selected.Label, defaultJobLogLines)
+	ctx, cancel := context.WithTimeout(context.Background(), jobTUIActionTimeout)
+	defer cancel()
+	logs, err := m.backend.Journal(ctx, selected.Label, defaultJobLogLines)
 	if err != nil {
 		m.err = err.Error()
 		return
@@ -322,11 +341,13 @@ func (m *jobTUIModel) deleteSelected() {
 		m.status = "press d again to remove " + selected.Label
 		return
 	}
-	if err := m.backend.DisableNow(context.Background(), selected.Label); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), jobTUIActionTimeout)
+	defer cancel()
+	if err := m.backend.DisableNow(ctx, selected.Label); err != nil {
 		m.err = err.Error()
 		return
 	}
-	if err := m.backend.Remove(context.Background(), selected.Label); err != nil {
+	if err := m.backend.Remove(ctx, selected.Label); err != nil {
 		m.err = err.Error()
 		return
 	}

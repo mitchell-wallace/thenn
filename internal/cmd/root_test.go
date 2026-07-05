@@ -380,7 +380,7 @@ func TestE2E_JobCreateAndManageWithFakeSystemd(t *testing.T) {
 	for _, want := range []string{
 		"systemctl --user daemon-reload",
 		"systemctl --user enable --now thenn-job-backup.timer",
-		"systemctl --user status thenn-job-backup.timer",
+		"systemctl --user status thenn-job-backup.timer thenn-job-backup.service",
 		"journalctl --user-unit thenn-job-backup.service --no-pager -n 80",
 		"systemctl --user disable --now thenn-job-backup.timer",
 		"systemctl --user start thenn-job-backup.service",
@@ -388,6 +388,61 @@ func TestE2E_JobCreateAndManageWithFakeSystemd(t *testing.T) {
 		if !strings.Contains(log, want) {
 			t.Fatalf("fake systemd log missing %q:\n%s", want, log)
 		}
+	}
+}
+
+func TestE2E_JobCreateRejectsDuplicateLabel(t *testing.T) {
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	installFakeSystemd(t)
+
+	_, stderr, code, err := runThenn("job", "every", "15m", "--label", "backup", "--", "echo", "one")
+	if err != nil || code != 0 {
+		t.Fatalf("initial create failed code %d err %v stderr %s", code, err, stderr)
+	}
+	_, stderr, code, err = runThenn("job", "every", "30m", "--label", "backup", "--", "echo", "two")
+	if err != nil {
+		t.Fatalf("duplicate create failed to start: %v", err)
+	}
+	if code == 0 {
+		t.Fatal("duplicate create succeeded, want failure")
+	}
+	if !strings.Contains(stderr, `job "backup" already exists`) {
+		t.Fatalf("duplicate create stderr = %q", stderr)
+	}
+}
+
+func TestE2E_JobCreateRollsBackMetadataOnSystemdFailure(t *testing.T) {
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "systemd.log")
+	systemctl := `#!/bin/sh
+printf 'systemctl' >> "$THENN_FAKE_SYSTEMD_LOG"
+for arg in "$@"; do printf ' %s' "$arg" >> "$THENN_FAKE_SYSTEMD_LOG"; done
+printf '\n' >> "$THENN_FAKE_SYSTEMD_LOG"
+if [ "$2" = "enable" ]; then exit 2; fi
+exit 0
+`
+	journalctl := "#!/bin/sh\nexit 0\n"
+	if err := os.WriteFile(filepath.Join(dir, "systemctl"), []byte(systemctl), 0o755); err != nil {
+		t.Fatalf("write fake systemctl: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "journalctl"), []byte(journalctl), 0o755); err != nil {
+		t.Fatalf("write fake journalctl: %v", err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("THENN_FAKE_SYSTEMD_LOG", logPath)
+
+	_, stderr, code, err := runThenn("job", "every", "15m", "--label", "broken", "--", "echo", "one")
+	if err != nil {
+		t.Fatalf("create failed to start: %v", err)
+	}
+	if code == 0 {
+		t.Fatal("create succeeded despite fake systemd failure")
+	}
+	if _, err := os.Stat(filepath.Join(configHome, "thenn", "jobs", "broken.json")); !os.IsNotExist(err) {
+		t.Fatalf("metadata was not rolled back, stat err = %v stderr = %s", err, stderr)
 	}
 }
 

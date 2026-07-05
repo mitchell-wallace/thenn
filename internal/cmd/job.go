@@ -74,6 +74,9 @@ func createJob(cmd *cobra.Command, verb, label string, args []string) error {
 	if err := validateJobCommand(commandArgv); err != nil {
 		return err
 	}
+	if _, _, ok := shellCommand(commandArgv); !ok {
+		commandArgv = expandCommandAlias(commandArgv)
+	}
 	if commandCheckingEnabled() {
 		emitCommandWarnings(checkCommand(commandArgv))
 	}
@@ -95,13 +98,20 @@ func createJob(cmd *cobra.Command, verb, label string, args []string) error {
 	if err != nil {
 		return err
 	}
+	if _, err := store.Load(metadata.Label); err == nil {
+		return fmt.Errorf("job %q already exists; remove it first or choose a different --label", metadata.Label)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
 	if err := store.Save(metadata); err != nil {
 		return err
 	}
 	if err := backend.Install(cmd.Context(), metadata); err != nil {
+		rollbackJobCreate(cmd.Context(), store, backend, metadata.Label)
 		return err
 	}
 	if err := backend.EnableNow(cmd.Context(), metadata.Label); err != nil {
+		rollbackJobCreate(cmd.Context(), store, backend, metadata.Label)
 		return err
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "created job %s\n", metadata.Label)
@@ -170,6 +180,13 @@ var jobShowCmd = &cobra.Command{
 		printJobMetadata(cmd, metadata)
 		status, err := backend.Status(cmd.Context(), metadata.Label)
 		if err != nil {
+			if status != "" {
+				fmt.Fprintln(cmd.OutOrStdout(), "Timer status:")
+				fmt.Fprint(cmd.OutOrStdout(), status)
+				if !strings.HasSuffix(status, "\n") {
+					fmt.Fprintln(cmd.OutOrStdout())
+				}
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Timer status unavailable: %v\n", err)
 			return nil
 		}
@@ -246,18 +263,27 @@ var jobRemoveCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		var disableErr error
 		if err := backend.DisableNow(cmd.Context(), metadata.Label); err != nil {
-			return err
+			disableErr = err
 		}
 		if err := backend.Remove(cmd.Context(), metadata.Label); err != nil {
 			return err
 		}
-		if err := store.Delete(metadata.Label); err != nil {
+		if err := store.Delete(metadata.Label); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
+		}
+		if disableErr != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "thenn: warning: could not disable timer before removal: %v\n", disableErr)
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "removed job %s\n", metadata.Label)
 		return nil
 	},
+}
+
+func rollbackJobCreate(ctx context.Context, store *job.Store, backend *job.SystemdBackend, label string) {
+	_ = backend.Remove(ctx, label)
+	_ = store.Delete(label)
 }
 
 var jobRunCmd = &cobra.Command{

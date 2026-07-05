@@ -90,11 +90,12 @@ func TestSystemdBackendWithFakeSystemctl(t *testing.T) {
 		{name: "systemctl", args: []string{"--user", "enable", "--now", "thenn-job-backup-daily.timer"}},
 		{name: "systemctl", args: []string{"--user", "start", "thenn-job-backup-daily.timer"}},
 		{name: "systemctl", args: []string{"--user", "start", "thenn-job-backup-daily.service"}},
-		{name: "systemctl", args: []string{"--user", "status", "thenn-job-backup-daily.timer"}},
+		{name: "systemctl", args: []string{"--user", "status", "thenn-job-backup-daily.timer", "thenn-job-backup-daily.service"}},
 		{name: "systemctl", args: []string{"--user", "stop", "thenn-job-backup-daily.timer"}},
 		{name: "systemctl", args: []string{"--user", "disable", "thenn-job-backup-daily.timer"}},
 		{name: "systemctl", args: []string{"--user", "disable", "--now", "thenn-job-backup-daily.timer"}},
 		{name: "journalctl", args: []string{"--user-unit", "thenn-job-backup-daily.service", "--no-pager", "-n", "20"}},
+		{name: "systemctl", args: []string{"--user", "disable", "--now", "thenn-job-backup-daily.timer"}},
 		{name: "systemctl", args: []string{"--user", "daemon-reload"}},
 	}
 	if !reflect.DeepEqual(runner.calls, want) {

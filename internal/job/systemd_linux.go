@@ -117,10 +117,14 @@ func (b *SystemdBackend) Remove(ctx context.Context, label string) error {
 	if err := ValidateLabel(label); err != nil {
 		return err
 	}
+	_ = b.DisableNow(ctx, label)
 	if err := os.Remove(filepath.Join(b.UnitDir, TimerUnitName(label))); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	if err := os.Remove(filepath.Join(b.UnitDir, ServiceUnitName(label))); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Remove(filepath.Join(b.UnitDir, "timers.target.wants", TimerUnitName(label))); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return b.DaemonReload(ctx)
@@ -131,7 +135,7 @@ func (b *SystemdBackend) Status(ctx context.Context, label string) (string, erro
 	if err := ValidateLabel(label); err != nil {
 		return "", err
 	}
-	output, err := b.systemctl(ctx, "status", TimerUnitName(label))
+	output, err := b.systemctl(ctx, "status", TimerUnitName(label), ServiceUnitName(label))
 	return string(output), err
 }
 

@@ -36,7 +36,7 @@ func NewMetadata(label, originalPhrase string, schedule Schedule, argv []string,
 		OriginalPhrase: strings.TrimSpace(originalPhrase),
 		ParsedSchedule: schedule,
 		CommandArgv:    append([]string(nil), argv...),
-		CWD:            strings.TrimSpace(cwd),
+		CWD:            cwd,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}

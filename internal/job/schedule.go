@@ -2,6 +2,7 @@ package job
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -295,7 +296,17 @@ func parseDuration(input string) (time.Duration, error) {
 		default:
 			return 0, fmt.Errorf("unknown duration unit %q", unit)
 		}
-		total += time.Duration(amount * float64(unitDuration))
+		nanos := amount * float64(unitDuration)
+		if math.IsInf(nanos, 0) || math.IsNaN(nanos) || nanos > float64(math.MaxInt64) {
+			return 0, fmt.Errorf("duration %q is too large", input)
+		}
+		if nanos != math.Trunc(nanos) {
+			return 0, fmt.Errorf("duration %q is below nanosecond precision", input)
+		}
+		total += time.Duration(nanos)
+		if total < 0 {
+			return 0, fmt.Errorf("duration %q is too large", input)
+		}
 		pos = match[1]
 	}
 	if pos != len(input) {
