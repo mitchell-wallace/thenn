@@ -35,7 +35,14 @@ func TestMain(m *testing.M) {
 }
 
 func runThenn(args ...string) (stdout, stderr string, exitCode int, err error) {
+	return runThennInDir("", args...)
+}
+
+func runThennInDir(dir string, args ...string) (stdout, stderr string, exitCode int, err error) {
 	cmd := exec.Command(binaryPath, args...)
+	if dir != "" {
+		cmd.Dir = dir
+	}
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
@@ -54,6 +61,37 @@ func runThenn(args ...string) (stdout, stderr string, exitCode int, err error) {
 		exitCode = 0
 	}
 	return
+}
+
+func installFakeSystemd(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "systemd.log")
+	systemctl := `#!/bin/sh
+printf 'systemctl' >> "$THENN_FAKE_SYSTEMD_LOG"
+for arg in "$@"; do printf ' %s' "$arg" >> "$THENN_FAKE_SYSTEMD_LOG"; done
+printf '\n' >> "$THENN_FAKE_SYSTEMD_LOG"
+if [ "$1" = "--user" ] && [ "$2" = "status" ]; then
+  printf 'fake timer status\n'
+fi
+exit 0
+`
+	journalctl := `#!/bin/sh
+printf 'journalctl' >> "$THENN_FAKE_SYSTEMD_LOG"
+for arg in "$@"; do printf ' %s' "$arg" >> "$THENN_FAKE_SYSTEMD_LOG"; done
+printf '\n' >> "$THENN_FAKE_SYSTEMD_LOG"
+printf 'fake journal output\n'
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(dir, "systemctl"), []byte(systemctl), 0o755); err != nil {
+		t.Fatalf("write fake systemctl: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "journalctl"), []byte(journalctl), 0o755); err != nil {
+		t.Fatalf("write fake journalctl: %v", err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("THENN_FAKE_SYSTEMD_LOG", logPath)
+	return logPath
 }
 
 func TestE2E_Success(t *testing.T) {
@@ -224,6 +262,166 @@ func TestProtectCommandFlags_LeavesUnknownThennFlagForCobra(t *testing.T) {
 	joined := strings.Join(args, " ")
 	if joined != "1ms --quieet" {
 		t.Fatalf("expected unknown thenn flag to be left for Cobra, got %q", joined)
+	}
+}
+
+func TestProtectCommandFlags_LeavesJobSubcommand(t *testing.T) {
+	args := protectCommandFlags([]string{"job", "list"})
+	joined := strings.Join(args, " ")
+	if joined != "job list" {
+		t.Fatalf("expected job subcommand args to be preserved, got %q", joined)
+	}
+}
+
+func TestE2E_JobBareCommandShowsHelp(t *testing.T) {
+	stdout, stderr, code, err := runThenn("job")
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d. stderr: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "Manage scriptable scheduled jobs") || !strings.Contains(stdout, "Usage:") {
+		t.Fatalf("expected job help, got stdout %q stderr %q", stdout, stderr)
+	}
+}
+
+func TestE2E_JobCreateAndManageWithFakeSystemd(t *testing.T) {
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	logPath := installFakeSystemd(t)
+
+	stdout, stderr, code, err := runThenn("job", "every", "15m", "--label", "backup", "--", "sh", "-c", "printf job")
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if code != 0 {
+		t.Fatalf("expected create exit code 0, got %d. stderr: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "created job backup") {
+		t.Fatalf("unexpected create stdout %q", stdout)
+	}
+
+	metadataPath := filepath.Join(configHome, "thenn", "jobs", "backup.json")
+	metadata, err := os.ReadFile(metadataPath)
+	if err != nil {
+		t.Fatalf("read metadata: %v", err)
+	}
+	if !strings.Contains(string(metadata), `"label": "backup"`) || !strings.Contains(string(metadata), `"sh"`) {
+		t.Fatalf("metadata missing expected fields:\n%s", metadata)
+	}
+
+	unitDir := filepath.Join(configHome, "systemd", "user")
+	service, err := os.ReadFile(filepath.Join(unitDir, "thenn-job-backup.service"))
+	if err != nil {
+		t.Fatalf("read service unit: %v", err)
+	}
+	if !strings.Contains(string(service), " job exec backup") {
+		t.Fatalf("service unit missing exec command:\n%s", service)
+	}
+	timer, err := os.ReadFile(filepath.Join(unitDir, "thenn-job-backup.timer"))
+	if err != nil {
+		t.Fatalf("read timer unit: %v", err)
+	}
+	if !strings.Contains(string(timer), "OnUnitActiveSec=15m") {
+		t.Fatalf("timer unit missing interval:\n%s", timer)
+	}
+
+	stdout, stderr, code, err = runThenn("job", "list")
+	if err != nil || code != 0 {
+		t.Fatalf("list failed code %d err %v stderr %s", code, err, stderr)
+	}
+	if !strings.Contains(stdout, "backup") || !strings.Contains(stdout, "every 15m") {
+		t.Fatalf("unexpected list stdout %q", stdout)
+	}
+
+	stdout, stderr, code, err = runThenn("job", "show", "backup")
+	if err != nil || code != 0 {
+		t.Fatalf("show failed code %d err %v stderr %s", code, err, stderr)
+	}
+	if !strings.Contains(stdout, "Label: backup") || !strings.Contains(stdout, "fake timer status") {
+		t.Fatalf("unexpected show stdout %q", stdout)
+	}
+
+	stdout, stderr, code, err = runThenn("job", "logs", "backup")
+	if err != nil || code != 0 {
+		t.Fatalf("logs failed code %d err %v stderr %s", code, err, stderr)
+	}
+	if !strings.Contains(stdout, "fake journal output") {
+		t.Fatalf("unexpected logs stdout %q", stdout)
+	}
+
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{args: []string{"job", "pause", "backup"}, want: "paused job backup"},
+		{args: []string{"job", "resume", "backup"}, want: "resumed job backup"},
+		{args: []string{"job", "run", "backup"}, want: "started job backup"},
+		{args: []string{"job", "remove", "backup"}, want: "removed job backup"},
+	} {
+		stdout, stderr, code, err = runThenn(tc.args...)
+		if err != nil || code != 0 {
+			t.Fatalf("%s failed code %d err %v stderr %s", strings.Join(tc.args, " "), code, err, stderr)
+		}
+		if !strings.Contains(stdout, tc.want) {
+			t.Fatalf("expected %q in stdout, got %q", tc.want, stdout)
+		}
+	}
+	if _, err := os.Stat(metadataPath); !os.IsNotExist(err) {
+		t.Fatalf("expected metadata to be removed, stat err = %v", err)
+	}
+
+	logData, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read fake systemd log: %v", err)
+	}
+	log := string(logData)
+	for _, want := range []string{
+		"systemctl --user daemon-reload",
+		"systemctl --user enable --now thenn-job-backup.timer",
+		"systemctl --user status thenn-job-backup.timer",
+		"journalctl --user-unit thenn-job-backup.service --no-pager -n 80",
+		"systemctl --user disable --now thenn-job-backup.timer",
+		"systemctl --user start thenn-job-backup.service",
+	} {
+		if !strings.Contains(log, want) {
+			t.Fatalf("fake systemd log missing %q:\n%s", want, log)
+		}
+	}
+}
+
+func TestE2E_JobExecUsesStoredCWDAndReturnsChildStatus(t *testing.T) {
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	logPath := installFakeSystemd(t)
+	workDir := t.TempDir()
+
+	_, stderr, code, err := runThennInDir(workDir, "job", "once", "at", "2099-01-01", "--label", "once-cwd", "--", "sh", "-c", "pwd; exit 7")
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+	if code != 0 {
+		t.Fatalf("expected create exit code 0, got %d. stderr: %s", code, stderr)
+	}
+
+	stdout, _, code, err := runThenn("job", "exec", "once-cwd")
+	if err != nil {
+		t.Fatalf("exec failed to start: %v", err)
+	}
+	if code != 7 {
+		t.Fatalf("expected child exit code 7, got %d", code)
+	}
+	if strings.TrimSpace(stdout) != workDir {
+		t.Fatalf("expected exec cwd %q, got stdout %q", workDir, stdout)
+	}
+
+	logData, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read fake systemd log: %v", err)
+	}
+	if !strings.Contains(string(logData), "systemctl --user disable --now thenn-job-once-cwd.timer") {
+		t.Fatalf("expected once exec to disable timer, log:\n%s", logData)
 	}
 }
 

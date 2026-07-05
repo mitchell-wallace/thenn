@@ -295,7 +295,7 @@ func protectCommandFlags(args []string) []string {
 			if strings.HasPrefix(arg, "-") {
 				return args
 			}
-			if arg == "config" || arg == "update" || arg == "version" {
+			if arg == "config" || arg == "job" || arg == "update" || arg == "version" {
 				return args
 			}
 			startedDuration = true
