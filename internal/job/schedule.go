@@ -51,7 +51,7 @@ func WithNow(now time.Time) ParseOption {
 
 var (
 	durationPartRe  = regexp.MustCompile(`(?i)(\d+(?:\.\d+)?)(us|ms|s|m|h|d)`)
-	time12Re        = regexp.MustCompile(`(?i)^(1[0-2]|[1-9])(?::([0-5]\d))?(am|pm|a|p)$`)
+	time12Re        = regexp.MustCompile(`(?i)^(1[012]|[1-9])(?::([0-5]\d))?(am|pm|a|p)$`)
 	time24Re        = regexp.MustCompile(`^(?:([01]?\d|2[0-3]):([0-5]\d))$`)
 	yearFirstRe     = regexp.MustCompile(`^(\d{4})([-/.])(\d{1,2})([-/.])(\d{1,2})$`)
 	startsYearRe    = regexp.MustCompile(`^\d{4}[-/.]`)

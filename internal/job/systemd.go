@@ -49,7 +49,7 @@ func NewSystemdBackend() (*SystemdBackend, error) {
 }
 
 // RenderUnits renders the service and timer units for metadata.
-func RenderUnits(metadata Metadata, binaryPath string) (UnitFiles, error) {
+func RenderUnits(metadata Metadata, binaryPath string) (UnitFiles, error) { //nolint:gocritic // Rendering from a value avoids backend-side mutation.
 	if err := metadata.Validate(); err != nil {
 		return UnitFiles{}, err
 	}

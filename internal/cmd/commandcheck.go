@@ -102,7 +102,7 @@ func currentShellAlias(name string) ([]string, bool) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, shell, "-ic", "alias "+shellQuote(name))
+	cmd := exec.CommandContext(ctx, shell, "-ic", "alias "+shellQuote(name)) //nolint:gosec // name is shell-quoted and rejected when it contains shell metacharacters.
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() != nil || err != nil {
 		commandAliasCache.Store(name, []string(nil))

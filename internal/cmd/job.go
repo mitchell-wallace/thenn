@@ -114,7 +114,7 @@ func createJob(cmd *cobra.Command, verb, label string, args []string) error {
 		rollbackJobCreate(cmd.Context(), store, backend, metadata.Label)
 		return err
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "created job %s\n", metadata.Label)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "created job %s\n", metadata.Label)
 	return nil
 }
 
@@ -157,12 +157,12 @@ var jobListCmd = &cobra.Command{
 			return err
 		}
 		if len(jobs) == 0 {
-			fmt.Fprintln(cmd.OutOrStdout(), "No jobs.")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No jobs.")
 			return nil
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), "LABEL\tSCHEDULE\tCOMMAND")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "LABEL\tSCHEDULE\tCOMMAND")
 		for _, metadata := range jobs {
-			fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", metadata.Label, metadata.OriginalPhrase, formatJobCommand(metadata.CommandArgv))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", metadata.Label, metadata.OriginalPhrase, formatJobCommand(metadata.CommandArgv))
 		}
 		return nil
 	},
@@ -177,23 +177,23 @@ var jobShowCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		printJobMetadata(cmd, metadata)
+		printJobMetadata(cmd, &metadata)
 		status, err := backend.Status(cmd.Context(), metadata.Label)
 		if err != nil {
 			if status != "" {
-				fmt.Fprintln(cmd.OutOrStdout(), "Timer status:")
-				fmt.Fprint(cmd.OutOrStdout(), status)
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Timer status:")
+				_, _ = fmt.Fprint(cmd.OutOrStdout(), status)
 				if !strings.HasSuffix(status, "\n") {
-					fmt.Fprintln(cmd.OutOrStdout())
+					_, _ = fmt.Fprintln(cmd.OutOrStdout())
 				}
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Timer status unavailable: %v\n", err)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Timer status unavailable: %v\n", err)
 			return nil
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), "Timer status:")
-		fmt.Fprint(cmd.OutOrStdout(), status)
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Timer status:")
+		_, _ = fmt.Fprint(cmd.OutOrStdout(), status)
 		if status != "" && !strings.HasSuffix(status, "\n") {
-			fmt.Fprintln(cmd.OutOrStdout())
+			_, _ = fmt.Fprintln(cmd.OutOrStdout())
 		}
 		return nil
 	},
@@ -212,9 +212,9 @@ var jobLogsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Fprint(cmd.OutOrStdout(), logs)
+		_, _ = fmt.Fprint(cmd.OutOrStdout(), logs)
 		if logs != "" && !strings.HasSuffix(logs, "\n") {
-			fmt.Fprintln(cmd.OutOrStdout())
+			_, _ = fmt.Fprintln(cmd.OutOrStdout())
 		}
 		return nil
 	},
@@ -232,7 +232,7 @@ var jobPauseCmd = &cobra.Command{
 		if err := backend.DisableNow(cmd.Context(), metadata.Label); err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "paused job %s\n", metadata.Label)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "paused job %s\n", metadata.Label)
 		return nil
 	},
 }
@@ -249,7 +249,7 @@ var jobResumeCmd = &cobra.Command{
 		if err := backend.EnableNow(cmd.Context(), metadata.Label); err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "resumed job %s\n", metadata.Label)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "resumed job %s\n", metadata.Label)
 		return nil
 	},
 }
@@ -274,9 +274,9 @@ var jobRemoveCmd = &cobra.Command{
 			return err
 		}
 		if disableErr != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "thenn: warning: could not disable timer before removal: %v\n", disableErr)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "thenn: warning: could not disable timer before removal: %v\n", disableErr)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "removed job %s\n", metadata.Label)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "removed job %s\n", metadata.Label)
 		return nil
 	},
 }
@@ -298,7 +298,7 @@ var jobRunCmd = &cobra.Command{
 		if err := backend.StartService(cmd.Context(), metadata.Label); err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "started job %s\n", metadata.Label)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "started job %s\n", metadata.Label)
 		return nil
 	},
 }
@@ -318,7 +318,7 @@ var jobSyntaxCmd = &cobra.Command{
 	Short: "Show job syntax",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Fprint(cmd.OutOrStdout(), `Job creation syntax:
+		_, _ = fmt.Fprint(cmd.OutOrStdout(), `Job creation syntax:
   thenn job every <duration> [until <date-or-time>] --label <label> -- <command...>
   thenn job daily at <time> [until <date-or-time>] --label <label> -- <command...>
   thenn job weekdays at <time> [until <date-or-time>] --label <label> -- <command...>
@@ -371,22 +371,22 @@ func loadJobWithStore(label string) (*job.Store, *job.SystemdBackend, job.Metada
 	return store, backend, metadata, nil
 }
 
-func printJobMetadata(cmd *cobra.Command, metadata job.Metadata) {
-	fmt.Fprintf(cmd.OutOrStdout(), "Label: %s\n", metadata.Label)
-	fmt.Fprintf(cmd.OutOrStdout(), "Schedule: %s\n", metadata.OriginalPhrase)
+func printJobMetadata(cmd *cobra.Command, metadata *job.Metadata) {
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Label: %s\n", metadata.Label)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Schedule: %s\n", metadata.OriginalPhrase)
 	if metadata.ParsedSchedule.OnCalendar != "" {
-		fmt.Fprintf(cmd.OutOrStdout(), "OnCalendar: %s\n", metadata.ParsedSchedule.OnCalendar)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "OnCalendar: %s\n", metadata.ParsedSchedule.OnCalendar)
 	}
 	if metadata.ParsedSchedule.OnUnitActiveSec != "" {
-		fmt.Fprintf(cmd.OutOrStdout(), "OnUnitActiveSec: %s\n", metadata.ParsedSchedule.OnUnitActiveSec)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "OnUnitActiveSec: %s\n", metadata.ParsedSchedule.OnUnitActiveSec)
 	}
 	if metadata.ParsedSchedule.Until != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "Until: %s\n", metadata.ParsedSchedule.Until.Format(time.RFC3339))
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Until: %s\n", metadata.ParsedSchedule.Until.Format(time.RFC3339))
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "Command: %s\n", formatJobCommand(metadata.CommandArgv))
-	fmt.Fprintf(cmd.OutOrStdout(), "CWD: %s\n", metadata.CWD)
-	fmt.Fprintf(cmd.OutOrStdout(), "Created: %s\n", metadata.CreatedAt.Format(time.RFC3339))
-	fmt.Fprintf(cmd.OutOrStdout(), "Updated: %s\n", metadata.UpdatedAt.Format(time.RFC3339))
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Command: %s\n", formatJobCommand(metadata.CommandArgv))
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "CWD: %s\n", metadata.CWD)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created: %s\n", metadata.CreatedAt.Format(time.RFC3339))
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated: %s\n", metadata.UpdatedAt.Format(time.RFC3339))
 }
 
 func formatJobCommand(argv []string) string {
@@ -415,7 +415,7 @@ func execJob(ctx context.Context, label string) error {
 	}
 	if runErr != nil {
 		if disableErr != nil {
-			fmt.Fprintf(os.Stderr, "thenn: failed to disable job timer: %v\n", disableErr)
+			_, _ = fmt.Fprintf(os.Stderr, "thenn: failed to disable job timer: %v\n", disableErr)
 		}
 		return returnChildExitStatus(runErr)
 	}

@@ -26,7 +26,7 @@ func newSystemdBackend() (*SystemdBackend, error) {
 }
 
 // Install writes service and timer unit files and reloads the user systemd manager.
-func (b *SystemdBackend) Install(ctx context.Context, metadata Metadata) error {
+func (b *SystemdBackend) Install(ctx context.Context, metadata Metadata) error { //nolint:gocritic // Backend methods keep value-style metadata ownership consistent.
 	units, err := RenderUnits(metadata, b.BinaryPath)
 	if err != nil {
 		return err

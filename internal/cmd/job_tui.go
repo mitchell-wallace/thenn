@@ -27,7 +27,7 @@ var (
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.AdaptiveColor{Light: "240", Dark: "238"}).
 			Padding(0, 1)
-	jobPanelFocusedStyle = jobPanelStyle.Copy().
+	jobPanelFocusedStyle = jobPanelStyle.
 				BorderForeground(lipgloss.AdaptiveColor{Light: "26", Dark: "62"})
 	jobSelectedStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.AdaptiveColor{Light: "232", Dark: "229"}).
@@ -38,7 +38,7 @@ var (
 	jobOKStyle     = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "28", Dark: "42"})
 	jobHeaderStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "25", Dark: "75"}).Bold(true)
 	jobTabStyle    = lipgloss.NewStyle().Padding(0, 1)
-	jobActiveTab   = jobTabStyle.Copy().Foreground(lipgloss.AdaptiveColor{Light: "232", Dark: "229"}).Background(lipgloss.AdaptiveColor{Light: "26", Dark: "62"}).Bold(true)
+	jobActiveTab   = jobTabStyle.Foreground(lipgloss.AdaptiveColor{Light: "232", Dark: "229"}).Background(lipgloss.AdaptiveColor{Light: "26", Dark: "62"}).Bold(true)
 )
 
 type jobTUIModel struct {
@@ -213,18 +213,32 @@ func (m *jobTUIModel) renderJobDetails(width, height int) string {
 	}
 	var b strings.Builder
 	b.WriteString(jobHeaderStyle.Render(selected.Label) + "\n")
-	b.WriteString(fmt.Sprintf("Schedule: %s\n", selected.OriginalPhrase))
+	b.WriteString("Schedule: ")
+	b.WriteString(selected.OriginalPhrase)
+	b.WriteByte('\n')
 	if selected.ParsedSchedule.OnCalendar != "" {
-		b.WriteString(fmt.Sprintf("Systemd:  OnCalendar=%s\n", selected.ParsedSchedule.OnCalendar))
+		b.WriteString("Systemd:  OnCalendar=")
+		b.WriteString(selected.ParsedSchedule.OnCalendar)
+		b.WriteByte('\n')
 	}
 	if selected.ParsedSchedule.OnUnitActiveSec != "" {
-		b.WriteString(fmt.Sprintf("Systemd:  OnActiveSec=%s, OnUnitActiveSec=%s\n", selected.ParsedSchedule.OnUnitActiveSec, selected.ParsedSchedule.OnUnitActiveSec))
+		b.WriteString("Systemd:  OnActiveSec=")
+		b.WriteString(selected.ParsedSchedule.OnUnitActiveSec)
+		b.WriteString(", OnUnitActiveSec=")
+		b.WriteString(selected.ParsedSchedule.OnUnitActiveSec)
+		b.WriteByte('\n')
 	}
 	if selected.ParsedSchedule.Until != nil {
-		b.WriteString(fmt.Sprintf("Until:    %s\n", selected.ParsedSchedule.Until.Format("2006-01-02 15:04")))
+		b.WriteString("Until:    ")
+		b.WriteString(selected.ParsedSchedule.Until.Format("2006-01-02 15:04"))
+		b.WriteByte('\n')
 	}
-	b.WriteString(fmt.Sprintf("Command:  %s\n", formatJobCommand(selected.CommandArgv)))
-	b.WriteString(fmt.Sprintf("CWD:      %s\n", selected.CWD))
+	b.WriteString("Command:  ")
+	b.WriteString(formatJobCommand(selected.CommandArgv))
+	b.WriteByte('\n')
+	b.WriteString("CWD:      ")
+	b.WriteString(selected.CWD)
+	b.WriteByte('\n')
 	b.WriteString("\n")
 	if m.confirmDelete == selected.Label {
 		b.WriteString(jobErrorStyle.Render("Press d again to remove this job."))

@@ -47,7 +47,7 @@ func NewMetadata(label, originalPhrase string, schedule Schedule, argv []string,
 }
 
 // Validate checks that required metadata fields are safe to persist and render.
-func (m Metadata) Validate() error {
+func (m Metadata) Validate() error { //nolint:gocritic // Metadata is intentionally value-like at package boundaries.
 	if err := ValidateLabel(m.Label); err != nil {
 		return err
 	}

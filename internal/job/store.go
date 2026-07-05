@@ -41,7 +41,7 @@ func (s *Store) Path(label string) (string, error) {
 }
 
 // Save writes metadata to <config>/thenn/jobs/<label>.json.
-func (s *Store) Save(metadata Metadata) error {
+func (s *Store) Save(metadata Metadata) error { //nolint:gocritic // Save takes a value so callers cannot mutate persisted data during marshaling.
 	if err := metadata.Validate(); err != nil {
 		return err
 	}
