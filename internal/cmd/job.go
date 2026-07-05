@@ -11,6 +11,7 @@ import (
 
 	"github.com/mitchell-wallace/thenn/internal/job"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 const defaultJobLogLines = 80
@@ -23,6 +24,9 @@ var jobCmd = &cobra.Command{
 Run "thenn job syntax" for creation examples.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd())) {
+			return runJobTUI(cmd)
+		}
 		return cmd.Help()
 	},
 }
