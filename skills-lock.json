@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "auto-code-review": {
+      "source": "mitchell-wallace/skills",
+      "sourceType": "github",
+      "skillPath": "auto-code-review/SKILL.md",
+      "computedHash": "8a63a2cf030799b76e1e1e83b6b712bb9edce688965b939d5e622da55cbb0274"
+    },
+    "nitpicker": {
+      "source": "mitchell-wallace/skills",
+      "sourceType": "github",
+      "skillPath": "nitpicker/SKILL.md",
+      "computedHash": "1ae16f3c7034027df7f71533f990caf758b6e1941158109def6d4f789792ad6d"
+    },
+    "pathfinder": {
+      "source": "mitchell-wallace/skills",
+      "sourceType": "github",
+      "skillPath": "pathfinder/SKILL.md",
+      "computedHash": "dee50229bce5ec974778ff005e06776bef682cecc73e8cc023a793b587acc840"
+    },
+    "test-quality": {
+      "source": "mitchell-wallace/skills",
+      "sourceType": "github",
+      "skillPath": "test-quality/SKILL.md",
+      "computedHash": "de64cd6b9145822717938f9780e631395529976147e6cf401d5e9fc6b304f4dd"
+    }
+  }
+}
