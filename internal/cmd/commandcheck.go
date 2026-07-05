@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -17,6 +18,8 @@ type commandWarning struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
+
+var commandAliasCache sync.Map
 
 func checkCommand(command []string) []commandWarning {
 	if len(command) == 0 {
@@ -34,7 +37,7 @@ func checkCommand(command []string) []commandWarning {
 			return warnings
 		}
 
-		commands := tokenizeShellCommands(script)
+		commands := expandCommandAliases(tokenizeShellCommands(script))
 		warnings = checkShellExecutables(commands)
 		if len(warnings) > 0 {
 			return warnings
@@ -48,6 +51,7 @@ func checkCommand(command []string) []commandWarning {
 		return checkAgentCommands(commands)
 	}
 
+	command = expandCommandAlias(command)
 	warnings := checkDirectCommand(command)
 	if len(warnings) > 0 {
 		return warnings
@@ -59,8 +63,98 @@ func checkCommand(command []string) []commandWarning {
 	return checkAgentCommands([][]string{command})
 }
 
+func expandCommandAliases(commands [][]string) [][]string {
+	expanded := make([][]string, 0, len(commands))
+	for _, command := range commands {
+		expanded = append(expanded, expandCommandAlias(command))
+	}
+	return expanded
+}
+
+func expandCommandAlias(command []string) []string {
+	if len(command) == 0 || skipShellExecutableCheck(command[0]) {
+		return command
+	}
+	alias, ok := currentShellAlias(command[0])
+	if !ok || len(alias) == 0 {
+		return command
+	}
+	expanded := make([]string, 0, len(alias)+len(command)-1)
+	expanded = append(expanded, alias...)
+	expanded = append(expanded, command[1:]...)
+	return expanded
+}
+
+func currentShellAlias(name string) ([]string, bool) {
+	if runtime.GOOS == "windows" || name == "" || strings.ContainsAny(name, "/\\$'\" \t\n\r") {
+		return nil, false
+	}
+	if cached, ok := commandAliasCache.Load(name); ok {
+		parts, _ := cached.([]string)
+		return parts, len(parts) > 0
+	}
+
+	shell := os.Getenv("SHELL")
+	if shell == "" || !supportsInteractiveShell(filepath.Base(shell)) {
+		commandAliasCache.Store(name, []string(nil))
+		return nil, false
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, shell, "-ic", "alias "+shellQuote(name))
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() != nil || err != nil {
+		commandAliasCache.Store(name, []string(nil))
+		return nil, false
+	}
+	parts, ok := parseAliasOutput(name, string(out))
+	if !ok {
+		commandAliasCache.Store(name, []string(nil))
+		return nil, false
+	}
+	commandAliasCache.Store(name, parts)
+	return parts, true
+}
+
+func parseAliasOutput(name, out string) ([]string, bool) {
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "alias ") {
+			line = strings.TrimSpace(strings.TrimPrefix(line, "alias "))
+		}
+		prefix := name + "="
+		if !strings.HasPrefix(line, prefix) {
+			continue
+		}
+		value := strings.TrimSpace(strings.TrimPrefix(line, prefix))
+		value = trimShellQuotes(value)
+		commands := tokenizeShellCommands(value)
+		if len(commands) == 0 || len(commands[0]) == 0 {
+			return nil, false
+		}
+		return commands[0], true
+	}
+	return nil, false
+}
+
+func trimShellQuotes(value string) string {
+	if len(value) < 2 {
+		return value
+	}
+	quote := value[0]
+	if (quote == '\'' || quote == '"') && value[len(value)-1] == quote {
+		return value[1 : len(value)-1]
+	}
+	return value
+}
+
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
 func shellCommand(command []string) (string, string, bool) {
-	if len(command) == 3 && (command[1] == "-c" || command[1] == "/c") {
+	if len(command) == 3 && (command[1] == "-c" || command[1] == "-ic" || command[1] == "/c") {
 		return command[0], command[2], true
 	}
 	return "", "", false
@@ -357,14 +451,14 @@ func optionTakesValue(agent, arg string) bool {
 		return agent == "codex"
 	}
 	switch arg {
-	case "--continue", "--dangerously-skip-permissions", "--help", "-h", "--version", "-v", "--print", "-p":
+	case "--continue", "--dangerously-bypass-approvals-and-sandbox", "--dangerously-skip-permissions", "--help", "-h", "--version", "-v", "--print", "-p":
 		return false
 	}
 	return strings.HasPrefix(arg, "--") || (strings.HasPrefix(arg, "-") && len([]rune(arg)) == 2)
 }
 
 func looksLikeSubcommand(arg string) bool {
-	if arg == "" || strings.ContainsAny(arg, `/\\.`) {
+	if arg == "" || strings.ContainsAny(arg, "/\\.") {
 		return false
 	}
 	if strings.ContainsAny(arg, " \t\n\r") {

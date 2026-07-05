@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"path/filepath"
 	"runtime"
 )
 
@@ -19,7 +20,19 @@ func resolveShell(command string) []string {
 		if shell == "" {
 			shell = "sh"
 		}
-		shellArgs = []string{"-c", command}
+		if supportsInteractiveShell(filepath.Base(shell)) {
+			shellArgs = []string{"-ic", command}
+		} else {
+			shellArgs = []string{"-c", command}
+		}
 	}
 	return append([]string{shell}, shellArgs...)
+}
+
+func supportsInteractiveShell(name string) bool {
+	switch name {
+	case "bash", "zsh", "fish", "ksh":
+		return true
+	}
+	return false
 }

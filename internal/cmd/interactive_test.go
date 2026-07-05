@@ -19,7 +19,7 @@ func TestInteractiveCommandValidationWarnsWhileTyping(t *testing.T) {
 	}
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	m := initialModel("")
+	m := initialModel("", "")
 	m.focusIndex = 1
 	m.commandInput.SetValue("devtool -z")
 	m.commandLastKeyPressTime = time.Now().Add(-time.Second)
@@ -39,7 +39,7 @@ func TestInteractiveCommandValidationWarnsWhileTyping(t *testing.T) {
 
 func TestInteractiveCommandValidationNoWarningForValidCommand(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	m := initialModel("")
+	m := initialModel("", "")
 	m.focusIndex = 1
 	m.commandInput.SetValue("echo hello")
 	m.commandLastKeyPressTime = time.Now().Add(-time.Second)
@@ -72,7 +72,7 @@ func TestInteractiveCommandValidationCanBeDisabledByConfig(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	m := initialModel("")
+	m := initialModel("", "")
 	m.focusIndex = 1
 	m.commandInput.SetValue("missing-command")
 	m.commandLastKeyPressTime = time.Now().Add(-time.Second)

@@ -16,7 +16,7 @@ import (
 
 var terminateSignals = []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP}
 
-func (r *Runner) listenInput(pauseChan, interruptChan chan<- struct{}, stopChan <-chan struct{}, doneChan chan struct{}) {
+func (r *Runner) listenInput(pauseChan, editChan, interruptChan chan<- struct{}, stopChan <-chan struct{}, doneChan chan struct{}) {
 	defer close(doneChan)
 
 	fd := int(os.Stdin.Fd())
@@ -62,6 +62,18 @@ func (r *Runner) listenInput(pauseChan, interruptChan chan<- struct{}, stopChan 
 						case pauseChan <- struct{}{}:
 						default:
 						}
+					case '\r', '\n':
+						select {
+						case editChan <- struct{}{}:
+						default:
+						}
+						return
+					case 27: // Esc
+						select {
+						case interruptChan <- struct{}{}:
+						default:
+						}
+						return
 					case 3: // Ctrl+C
 						select {
 						case interruptChan <- struct{}{}:

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -43,6 +44,34 @@ func TestCheckCommand_DirectMissingExecutableWarning(t *testing.T) {
 	}
 	if warnings[0].Code != "command-not-found" {
 		t.Fatalf("expected command-not-found warning, got %#v", warnings[0])
+	}
+}
+
+func TestCheckCommand_DirectAliasNoMissingExecutableWarning(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell alias lookup is Unix-only")
+	}
+
+	commandAliasCache = sync.Map{}
+	t.Cleanup(func() { commandAliasCache = sync.Map{} })
+
+	tmp := t.TempDir()
+	fakeShell := filepath.Join(tmp, "bash")
+	shellContents := "#!/bin/sh\nprintf \"%s\\n\" \"cx='codex --dangerously-bypass-approvals-and-sandbox'\"\n"
+	if err := os.WriteFile(fakeShell, []byte(shellContents), 0o755); err != nil {
+		t.Fatalf("write fake shell: %v", err)
+	}
+	fakeCodex := filepath.Join(tmp, "codex")
+	codexContents := "#!/bin/sh\nprintf '%s\n' 'Commands:' '  exec  Run Codex non-interactively'\n"
+	if err := os.WriteFile(fakeCodex, []byte(codexContents), 0o755); err != nil {
+		t.Fatalf("write fake codex: %v", err)
+	}
+	t.Setenv("SHELL", fakeShell)
+	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	warnings := checkCommand([]string{"cx", "exec", "prompt"})
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings for aliased codex command, got %#v", warnings)
 	}
 }
 

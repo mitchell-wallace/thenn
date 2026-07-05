@@ -25,25 +25,31 @@ var (
 // ErrInterrupted is returned when the user interrupts execution (Ctrl+C).
 var ErrInterrupted = errors.New("interrupted")
 
+// ErrEditRequested is returned when the user asks to edit the delayed command.
+var ErrEditRequested = errors.New("edit requested")
+
 // Runner represents the countdown runner configuration and execution state.
 type Runner struct {
-	Duration time.Duration
-	Command  []string
-	Quiet    bool
+	Duration  time.Duration
+	Command   []string
+	Quiet     bool
+	Remaining time.Duration
 }
 
 // NewRunner creates a new countdown timer runner.
 func NewRunner(d time.Duration, cmd []string, quiet bool) *Runner {
 	return &Runner{
-		Duration: d,
-		Command:  cmd,
-		Quiet:    quiet,
+		Duration:  d,
+		Command:   cmd,
+		Quiet:     quiet,
+		Remaining: d,
 	}
 }
 
 // Run starts the countdown, handles keyboard pausing, and executes the delayed command.
 func (r *Runner) Run() error {
 	pauseChan := make(chan struct{}, 1)
+	editChan := make(chan struct{}, 1)
 	interruptChan := make(chan struct{}, 1)
 	stopChan := make(chan struct{})
 	doneChan := make(chan struct{})
@@ -61,7 +67,7 @@ func (r *Runner) Run() error {
 	defer signal.Stop(sigChan)
 
 	// Start key listener (platform-specific)
-	go r.listenInput(pauseChan, interruptChan, stopChan, doneChan)
+	go r.listenInput(pauseChan, editChan, interruptChan, stopChan, doneChan)
 
 	var paused bool
 	remaining := r.Duration
@@ -89,13 +95,23 @@ func (r *Runner) Run() error {
 			if !r.Quiet {
 				fmt.Println()
 			}
+			r.Remaining = remaining
 			close(stopChan)
 			<-doneChan
 			return ErrInterrupted
+		case <-editChan:
+			if !r.Quiet {
+				fmt.Println()
+			}
+			r.Remaining = remaining
+			close(stopChan)
+			<-doneChan
+			return ErrEditRequested
 		case sig := <-sigChan:
 			if !r.Quiet {
 				fmt.Println()
 			}
+			r.Remaining = remaining
 			close(stopChan)
 			<-doneChan
 			if sig == os.Interrupt {
@@ -120,6 +136,7 @@ func (r *Runner) Run() error {
 			r.printLine(remaining, endTime, paused)
 		}
 	}
+	r.Remaining = 0
 
 	// Signal key listener goroutine to stop and wait for it to release stdin
 	close(stopChan)
@@ -252,7 +269,7 @@ func FormatCommand(cmd []string) string {
 	if len(cmd) == 0 {
 		return ""
 	}
-	if len(cmd) == 3 && (cmd[1] == "-c" || cmd[1] == "/c") {
+	if len(cmd) == 3 && (cmd[1] == "-c" || cmd[1] == "-ic" || cmd[1] == "/c") {
 		lower0 := strings.ToLower(cmd[0])
 		if strings.HasSuffix(lower0, "sh") || strings.HasSuffix(lower0, "bash") || strings.HasSuffix(lower0, "zsh") || strings.HasSuffix(lower0, "cmd.exe") || strings.HasSuffix(lower0, "cmd") || strings.HasSuffix(lower0, "powershell.exe") || strings.HasSuffix(lower0, "powershell") {
 			return cmd[2]

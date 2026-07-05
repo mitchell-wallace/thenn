@@ -150,7 +150,7 @@ type model struct {
 	commandValidationValue   string
 }
 
-func initialModel(prepopulatedCmd string) model {
+func initialModel(prepopulatedDuration, prepopulatedCmd string) model {
 	d := textinput.New()
 	d.Placeholder = "e.g. 10s, 5m, 1500, 3:00p"
 	d.PlaceholderStyle = placeholderStyle
@@ -158,6 +158,7 @@ func initialModel(prepopulatedCmd string) model {
 	d.Focus()
 	d.Prompt = focusedStyle.Render("> ")
 	d.TextStyle = focusedStyle
+	d.SetValue(prepopulatedDuration)
 
 	c := textarea.New()
 	c.Placeholder = "e.g. echo 'done'"
@@ -212,6 +213,9 @@ func initialModel(prepopulatedCmd string) model {
 		alwaysHideHints: cfg.AlwaysHideHints,
 		commandChecking: !cfg.DisableCommandChecking,
 		lastTickTime:    time.Now(),
+	}
+	if strings.TrimSpace(prepopulatedDuration) != "" {
+		m.durationLastKeyPressTime = time.Now()
 	}
 	if strings.TrimSpace(prepopulatedCmd) != "" {
 		m.commandLastKeyPressTime = time.Now()
@@ -537,7 +541,11 @@ func stripHintMarkup(text string) string {
 
 // runInteractive runs the interactive Bubble Tea UI and returns the entered duration and command.
 func runInteractive(prepopulatedCmd string) (string, []string, error) {
-	mModel := initialModel(prepopulatedCmd)
+	return runInteractiveWithValues("", prepopulatedCmd)
+}
+
+func runInteractiveWithValues(prepopulatedDuration, prepopulatedCmd string) (string, []string, error) {
+	mModel := initialModel(prepopulatedDuration, prepopulatedCmd)
 	p := tea.NewProgram(&mModel)
 	m, err := p.Run()
 	if err != nil {

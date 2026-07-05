@@ -153,13 +153,35 @@ Pressing the spacebar while running will pause the countdown, freezing the durat
 		if err != nil {
 			return fmt.Errorf("invalid duration: %w", err)
 		}
-
-		if commandCheckingEnabled() {
-			emitCommandWarnings(checkCommand(commandPart))
+		if _, _, ok := shellCommand(commandPart); !ok {
+			commandPart = expandCommandAlias(commandPart)
 		}
 
-		runner := timer.NewRunner(d, commandPart, quietFlag)
-		err = runner.Run()
+		for {
+			if commandCheckingEnabled() {
+				emitCommandWarnings(checkCommand(commandPart))
+			}
+
+			runner := timer.NewRunner(d, commandPart, quietFlag)
+			err = runner.Run()
+			if !errors.Is(err, timer.ErrEditRequested) {
+				break
+			}
+
+			durationInput, editedCommand, editErr := runInteractiveWithValues(timer.FormatRemaining(runner.Remaining), timer.FormatCommand(commandPart))
+			if editErr != nil {
+				if errors.Is(editErr, timer.ErrInterrupted) {
+					err = editErr
+					break
+				}
+				return editErr
+			}
+			d, err = timer.ParseDurationOrTarget(durationInput, time.Now())
+			if err != nil {
+				return fmt.Errorf("invalid duration: %w", err)
+			}
+			commandPart = editedCommand
+		}
 
 		// Print update notice if one was detected
 		select {
