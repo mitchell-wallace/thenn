@@ -1,0 +1,76 @@
+package job
+
+import (
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestRenderUnits(t *testing.T) {
+	metadata := testMetadata(t)
+	metadata.CWD = "/home/test/with space"
+	units, err := RenderUnits(metadata, "/usr/local/bin/thenn")
+	if err != nil {
+		t.Fatalf("RenderUnits() error = %v", err)
+	}
+
+	serviceChecks := []string{
+		"Description=thenn job backup-daily",
+		"Type=oneshot",
+		`WorkingDirectory="/home/test/with space"`,
+		"ExecStart=/usr/local/bin/thenn job exec backup-daily",
+	}
+	for _, check := range serviceChecks {
+		if !strings.Contains(units.Service, check) {
+			t.Fatalf("service unit missing %q:\n%s", check, units.Service)
+		}
+	}
+
+	timerChecks := []string{
+		"Description=Run thenn job backup-daily",
+		"OnCalendar=*-*-* 02:00:00",
+		"Persistent=true",
+		"Unit=thenn-job-backup-daily.service",
+		"WantedBy=timers.target",
+	}
+	for _, check := range timerChecks {
+		if !strings.Contains(units.Timer, check) {
+			t.Fatalf("timer unit missing %q:\n%s", check, units.Timer)
+		}
+	}
+}
+
+func TestRenderUnitsWithIntervalSchedule(t *testing.T) {
+	metadata := testMetadata(t)
+	metadata.ParsedSchedule = Schedule{
+		Kind:            ScheduleEvery,
+		Interval:        15 * time.Minute,
+		OnUnitActiveSec: "15m",
+	}
+	units, err := RenderUnits(metadata, "/usr/local/bin/thenn")
+	if err != nil {
+		t.Fatalf("RenderUnits() error = %v", err)
+	}
+	if !strings.Contains(units.Timer, "OnUnitActiveSec=15m") {
+		t.Fatalf("timer unit missing interval trigger:\n%s", units.Timer)
+	}
+	if !strings.Contains(units.Timer, "OnActiveSec=15m") {
+		t.Fatalf("timer unit missing initial interval trigger:\n%s", units.Timer)
+	}
+	if strings.Contains(units.Timer, "OnCalendar=") {
+		t.Fatalf("timer unit unexpectedly contains OnCalendar:\n%s", units.Timer)
+	}
+}
+
+func testMetadata(t *testing.T) Metadata {
+	t.Helper()
+	schedule, err := NewParsedSchedule("*-*-* 02:00:00")
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := NewMetadata("backup-daily", "daily at 2am", schedule, []string{"/usr/bin/backup", "--fast"}, "/home/test", time.Date(2026, 7, 5, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return metadata
+}
