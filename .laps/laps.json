@@ -175,10 +175,22 @@
       "title": "verify wake-timer semantics on a qualifying systemd user-manager host after test evidence instrumentation",
       "description": "On a Linux host with systemctl installed, non-empty XDG_RUNTIME_DIR, and successful systemctl --user show-environment, run exactly: THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. Capture complete output. Pass only if non-skipped output reports three serialized start/end pairs, each later start at least 200ms after the prior completion, every cleanup action succeeds (disable --now timer; stop service; clean --what=state timer; unlink timer/service; daemon-reload; reset-failed), and the command passes.",
       "assignee": "verify",
-      "isDone": false,
+      "isDone": true,
       "order": -524288,
       "createdAt": "2026-07-10T08:24:04.519642704Z",
-      "updatedAt": "2026-07-10T08:24:04.519642704Z",
+      "updatedAt": "2026-07-10T08:30:08.362085683Z",
+      "completedAt": "2026-07-10T08:30:08.362085683Z"
+    },
+    {
+      "kind": "lap",
+      "id": "then-4d0c",
+      "title": "rerun real-systemd wake-timer verification on qualifying user-manager host",
+      "description": "Run only on Linux with systemctl installed, non-empty XDG_RUNTIME_DIR, and successful systemctl --user show-environment. Execute exactly: THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. Capture complete output. Pass only with three serialized start/end pairs, each later start at least 200ms after prior completion, all seven cleanup actions status=ok (disable --now timer; stop service; clean --what=state timer; unlink timer/service; daemon-reload; reset-failed), and command exit 0. Current container is unqualified: systemctl absent and XDG_RUNTIME_DIR empty.",
+      "assignee": "verify",
+      "isDone": false,
+      "order": -589824,
+      "createdAt": "2026-07-10T08:30:08.33422922Z",
+      "updatedAt": "2026-07-10T08:30:08.33422922Z",
       "completedAt": null
     }
   ]
