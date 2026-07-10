@@ -172,6 +172,14 @@ func cleanupRealSystemdUnits(
 	results := make([]integrationCleanupResult, 0, 7)
 	runSystemctl := func(action, target string, args ...string) {
 		output, err := systemctl(ctx, args...)
+		// cleanup is idempotent: "No matching resources found" (clean on a
+		// timer with no Persistent= state) and "Unit ... not loaded"
+		// (reset-failed after daemon-reload already unloaded the units) mean
+		// the desired state is already reached, so they are recorded as ok
+		// while preserving the original output as evidence.
+		if err != nil && benignSystemdCleanupOutput(output) {
+			err = nil
+		}
 		results = append(results, integrationCleanupResult{action: action, target: target, output: output, err: err})
 	}
 	runUnlink := func(action, path string) {
@@ -187,6 +195,20 @@ func cleanupRealSystemdUnits(
 	runSystemctl("reset-failed service and timer", serviceName+","+timerName, "reset-failed", serviceName, timerName)
 
 	return results
+}
+
+// benignSystemdCleanupOutput reports whether output is a systemctl cleanup
+// failure that indicates the target was already clean or unloaded, so the
+// cleanup step is already complete and should be recorded as idempotent
+// success rather than failure.
+//
+// Observed on Ubuntu 24.04:
+//   - clean --what=state on a timer with no Persistent= state:
+//     "Failed to clean unit <unit>.timer: No matching resources found."
+//   - reset-failed on a unit the manager already unloaded after daemon-reload:
+//     "Failed to reset failed state of unit <unit>: Unit <unit> not loaded."
+func benignSystemdCleanupOutput(output string) bool {
+	return strings.Contains(output, "No matching resources found") || strings.Contains(output, "not loaded")
 }
 
 func waitForCompletedRuns(t *testing.T, path string, runs int, timeout time.Duration) []integrationEvent {
@@ -309,5 +331,72 @@ func TestCleanupRealSystemdUnitsAttemptsEveryAction(t *testing.T) {
 		if i != 1 && i != 3 && result.err != nil {
 			t.Errorf("cleanup result %d unexpectedly failed: %#v", i, result)
 		}
+	}
+}
+
+func TestBenignSystemdCleanupOutput(t *testing.T) {
+	tests := []struct {
+		name   string
+		output string
+		want   bool
+	}{
+		{name: "clean no resources", output: "Failed to clean unit x.timer: No matching resources found.", want: true},
+		{name: "reset-failed not loaded", output: "Failed to reset failed state of unit x.service: Unit x.service not loaded.", want: true},
+		{name: "genuine clean failure", output: "Failed to clean unit x.timer: Access denied", want: false},
+		{name: "empty output", output: "", want: false},
+		{name: "unrelated stop output", output: "stop output", want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := benignSystemdCleanupOutput(tc.output); got != tc.want {
+				t.Fatalf("benignSystemdCleanupOutput(%q) = %v, want %v", tc.output, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestCleanupRealSystemdUnitsTreatsBenignErrorsAsSuccess reproduces the exact
+// cleanup failure observed on the Ubuntu 24.04 qualifying host (run
+// 29080435784): clean found no Persistent= state and reset-failed ran after
+// daemon-reload already unloaded the units. Both must be recorded as ok so
+// all seven cleanup actions pass, while the original systemctl output is kept
+// as evidence.
+func TestCleanupRealSystemdUnitsTreatsBenignErrorsAsSuccess(t *testing.T) {
+	systemctl := func(_ context.Context, args ...string) (string, error) {
+		call := strings.Join(args, " ")
+		switch {
+		case strings.HasPrefix(call, "clean --what=state"):
+			return "Failed to clean unit example.timer: No matching resources found.", fmt.Errorf("exit status 1")
+		case strings.HasPrefix(call, "reset-failed"):
+			return "Failed to reset failed state of unit example.service: Unit example.service not loaded.\nFailed to reset failed state of unit example.timer: Unit example.timer not loaded.", fmt.Errorf("exit status 1")
+		default:
+			return "", nil
+		}
+	}
+	unlink := func(string) error { return nil }
+
+	results := cleanupRealSystemdUnits(
+		context.Background(),
+		"example.service",
+		"example.timer",
+		"/runtime/example.service",
+		"/runtime/example.timer",
+		systemctl,
+		unlink,
+	)
+
+	if len(results) != 7 {
+		t.Fatalf("cleanup returned %d results, want 7", len(results))
+	}
+	for _, result := range results {
+		if result.err != nil {
+			t.Errorf("cleanup action %q unexpectedly failed: %v output=%q", result.action, result.err, result.output)
+		}
+	}
+	if !strings.Contains(results[2].output, "No matching resources found") {
+		t.Errorf("clean result lost benign evidence: %q", results[2].output)
+	}
+	if !strings.Contains(results[6].output, "not loaded") {
+		t.Errorf("reset-failed result lost benign evidence: %q", results[6].output)
 	}
 }
