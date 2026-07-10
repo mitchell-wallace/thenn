@@ -163,11 +163,11 @@
       "title": "make real-systemd wake-timer integration test emit verifiable timing and cleanup evidence",
       "description": "Update internal/job/systemd_integration_test.go so the prescribed -v TestRealSystemd run emits the exact measured three start/end pairs and completion gaps, and fails/reports any cleanup failure. Output must make it possible for verification to prove: serialized oneshot pairs, later starts at least 200ms after prior completion, and successful disable --now, service stop, clean --what=state, both unlinks, daemon-reload, and reset-failed. Preserve opt-in and qualifying-host safeguards; add focused tests as appropriate.",
       "assignee": "senior",
-      "isDone": false,
+      "isDone": true,
       "order": -589824,
       "createdAt": "2026-07-10T08:24:04.551500042Z",
-      "updatedAt": "2026-07-10T08:24:04.551500042Z",
-      "completedAt": null
+      "updatedAt": "2026-07-10T08:28:27.978742327Z",
+      "completedAt": "2026-07-10T08:28:27.978742327Z"
     },
     {
       "kind": "lap",
