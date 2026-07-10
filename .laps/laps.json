@@ -43,10 +43,22 @@
       "title": "verify thenn wake-timer semantics on real systemd",
       "description": "Review the fixed-delay every policy and calendar catch-up documentation from then-e79d. Run build, unit tests, lint, and the opt-in real-systemd integration test (THENN_SYSTEMD_INTEGRATION=1 go test -tags=integration ./internal/job -run TestRealSystemd) on a host with a reachable systemd --user manager. Confirm OnUnitInactiveSec serialization, one-second accuracy, RandomizedDelaySec=0, WakeSystem=false, removal of persistent timestamp state, suspend/offline claims, and lingering guidance. Record any environment limitations and a verification report.",
       "assignee": "verify",
-      "isDone": false,
+      "isDone": true,
       "order": 131072,
       "createdAt": "2026-07-10T08:00:13.81176784Z",
-      "updatedAt": "2026-07-10T08:00:13.81176784Z",
+      "updatedAt": "2026-07-10T08:06:30.930398891Z",
+      "completedAt": "2026-07-10T08:06:30.930398891Z"
+    },
+    {
+      "kind": "lap",
+      "id": "then-473a",
+      "title": "verify thenn wake-timer semantics on reachable systemd user manager",
+      "description": "Run THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd on Linux where systemctl --user show-environment succeeds and XDG_RUNTIME_DIR is set. Record non-skipped evidence of three serialized runs, fixed delay after oneshot completion, and cleanup. Re-run just build, just test, and just lint if the target checkout differs.",
+      "assignee": "verify",
+      "isDone": false,
+      "order": 65536,
+      "createdAt": "2026-07-10T08:06:03.004039081Z",
+      "updatedAt": "2026-07-10T08:06:03.004039081Z",
       "completedAt": null
     }
   ]
