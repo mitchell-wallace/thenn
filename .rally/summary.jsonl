@@ -8,3 +8,4 @@
 {"outing_id":"relay-1-run-8","summary":"Verification blocked: Linux host lacks systemctl and XDG_RUNTIME_DIR, so the required real-systemd test was not run.","updated_at":"2026-07-10T08:15:34Z","laps_completed":["then-2bb3"]}
 {"outing_id":"relay-1-run-9","summary":"Real-systemd wake-timer verification is blocked: this Linux host has no systemctl and XDG_RUNTIME_DIR is unset; queued qualifying-host rerun.","updated_at":"2026-07-10T08:16:50Z","laps_completed":["then-84e7"]}
 {"outing_id":"relay-1-run-10","summary":"Wake-timer real-systemd verification remains blocked: systemctl is absent and XDG_RUNTIME_DIR is unset; queued qualifying-host rerun.","updated_at":"2026-07-10T08:18:21Z","laps_completed":["then-7c95"]}
+{"outing_id":"relay-1-run-11","summary":"Wake-timer real-systemd verification is blocked because this Linux container lacks systemctl and XDG_RUNTIME_DIR; recorded a qualifying-host rerun.","updated_at":"2026-07-10T08:20:31Z","laps_completed":["then-8743"]}
