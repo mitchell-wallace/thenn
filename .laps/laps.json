@@ -211,10 +211,22 @@
       "title": "rerun real-systemd wake-timer verification on qualifying user-manager host",
       "description": "Run only on Linux where systemctl is installed, XDG_RUNTIME_DIR is non-empty, and systemctl --user show-environment succeeds. Then execute exactly: THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. Capture complete output. Pass only if exit 0, logs three serialized REAL_SYSTEMD_TIMING start/end pairs, both REAL_SYSTEMD_GAP values are at least 200000000 ns, and all seven REAL_SYSTEMD_CLEANUP actions are status=ok: disable --now timer; stop service; clean --what=state timer; unlink timer; unlink service; daemon-reload; reset-failed service and timer. Current container is unqualified (systemctl absent; XDG_RUNTIME_DIR empty).",
       "assignee": "verify",
-      "isDone": false,
+      "isDone": true,
       "order": -720896,
       "createdAt": "2026-07-10T08:33:59.214249448Z",
-      "updatedAt": "2026-07-10T08:33:59.214249448Z",
+      "updatedAt": "2026-07-10T08:35:23.087879491Z",
+      "completedAt": "2026-07-10T08:35:23.087879491Z"
+    },
+    {
+      "kind": "lap",
+      "id": "then-975b",
+      "title": "provide qualifying user-manager host for real-systemd verification",
+      "description": "Current runner is Linux but has no systemctl and XDG_RUNTIME_DIR is empty, so it cannot execute the required real-systemd check. Dispatch this validation to a Linux host with systemctl installed, non-empty XDG_RUNTIME_DIR, and a working systemctl --user show-environment. On that host run exactly: THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. Capture complete output and verify exit 0, three serialized REAL_SYSTEMD_TIMING pairs, two gaps \u003e=200000000 ns, and all seven required REAL_SYSTEMD_CLEANUP actions status=ok. No source changes are requested.",
+      "assignee": "senior",
+      "isDone": false,
+      "order": -786432,
+      "createdAt": "2026-07-10T08:35:20.683218853Z",
+      "updatedAt": "2026-07-10T08:35:20.683218853Z",
       "completedAt": null
     }
   ]
