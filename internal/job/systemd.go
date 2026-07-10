@@ -102,9 +102,9 @@ func renderTimerTriggers(schedule Schedule) (string, error) {
 		return "", err
 	}
 	if schedule.OnCalendar != "" {
-		return "OnCalendar=" + schedule.OnCalendar + "\nPersistent=true", nil
+		return "OnCalendar=" + schedule.OnCalendar + "\nPersistent=true\nAccuracySec=1s\nRandomizedDelaySec=0\nWakeSystem=false", nil
 	}
-	return "OnActiveSec=" + schedule.OnUnitActiveSec + "\nOnUnitActiveSec=" + schedule.OnUnitActiveSec, nil
+	return "OnActiveSec=" + schedule.OnUnitActiveSec + "\nOnUnitInactiveSec=" + schedule.OnUnitActiveSec + "\nAccuracySec=1s\nRandomizedDelaySec=0\nWakeSystem=false", nil
 }
 
 // ServiceUnitName returns the systemd service unit name for label.

@@ -36,6 +36,18 @@
       "createdAt": "2026-07-10T07:39:57.725967837Z",
       "updatedAt": "2026-07-10T07:39:57.725967837Z",
       "completedAt": null
+    },
+    {
+      "kind": "lap",
+      "id": "then-2e29",
+      "title": "verify thenn wake-timer semantics on real systemd",
+      "description": "Review the fixed-delay every policy and calendar catch-up documentation from then-e79d. Run build, unit tests, lint, and the opt-in real-systemd integration test (THENN_SYSTEMD_INTEGRATION=1 go test -tags=integration ./internal/job -run TestRealSystemd) on a host with a reachable systemd --user manager. Confirm OnUnitInactiveSec serialization, one-second accuracy, RandomizedDelaySec=0, WakeSystem=false, removal of persistent timestamp state, suspend/offline claims, and lingering guidance. Record any environment limitations and a verification report.",
+      "assignee": "verify",
+      "isDone": false,
+      "order": 131072,
+      "createdAt": "2026-07-10T08:00:13.81176784Z",
+      "updatedAt": "2026-07-10T08:00:13.81176784Z",
+      "completedAt": null
     }
   ]
 }

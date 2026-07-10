@@ -364,7 +364,7 @@ func TestE2E_JobCreateAndManageWithFakeSystemd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read timer unit: %v", err)
 	}
-	if !strings.Contains(string(timer), "OnUnitActiveSec=15m") {
+	if !strings.Contains(string(timer), "OnUnitInactiveSec=15m") {
 		t.Fatalf("timer unit missing interval:\n%s", timer)
 	}
 

@@ -24,7 +24,9 @@ const (
 type Schedule struct {
 	Kind ScheduleKind `json:"kind,omitempty"`
 
-	// Interval and OnUnitActiveSec are set for "every" schedules.
+	// Interval and OnUnitActiveSec are set for "every" schedules. The latter
+	// retains its persisted field name for compatibility, but unit rendering
+	// uses it as OnUnitInactiveSec so the delay starts after each run finishes.
 	Interval        time.Duration `json:"interval,omitempty"`
 	OnUnitActiveSec string        `json:"on_unit_active_sec,omitempty"`
 

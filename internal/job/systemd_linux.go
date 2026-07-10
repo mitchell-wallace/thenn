@@ -157,7 +157,8 @@ func (b *SystemdBackend) Remove(ctx context.Context, label string) error {
 	}
 	disableErr := b.DisableNow(ctx, label)
 	stopErr := b.StopService(ctx, label)
-	if err := errors.Join(disableErr, stopErr); err != nil {
+	cleanErr := b.cleanTimerState(ctx, label)
+	if err := errors.Join(disableErr, stopErr, cleanErr); err != nil {
 		return fmt.Errorf("stop job before removal: %w", err)
 	}
 	if err := b.removeUnitFiles(label); err != nil {
@@ -173,9 +174,17 @@ func (b *SystemdBackend) RollbackInstall(ctx context.Context, label string) erro
 	}
 	_ = b.DisableNow(ctx, label)
 	_ = b.StopService(ctx, label)
+	_ = b.cleanTimerState(ctx, label)
 	removeErr := b.removeUnitFiles(label)
 	reloadErr := b.DaemonReload(ctx)
 	return errors.Join(removeErr, reloadErr)
+}
+
+// cleanTimerState removes Persistent= timestamp state before a timer unit is
+// uninstalled, so reusing a label cannot inherit an old calendar deadline.
+func (b *SystemdBackend) cleanTimerState(ctx context.Context, label string) error {
+	_, err := b.systemctl(ctx, "clean", "--what=state", TimerUnitName(label))
+	return err
 }
 
 func (b *SystemdBackend) removeUnitFiles(label string) error {

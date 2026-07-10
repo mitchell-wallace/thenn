@@ -34,6 +34,9 @@ func TestRenderUnits(t *testing.T) {
 		"Description=Run thenn job backup-daily",
 		"OnCalendar=*-*-* 02:00:00",
 		"Persistent=true",
+		"AccuracySec=1s",
+		"RandomizedDelaySec=0",
+		"WakeSystem=false",
 		"Unit=thenn-job-backup-daily.service",
 		"WantedBy=timers.target",
 	}
@@ -55,14 +58,25 @@ func TestRenderUnitsWithIntervalSchedule(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderUnits() error = %v", err)
 	}
-	if !strings.Contains(units.Timer, "OnUnitActiveSec=15m") {
+	if !strings.Contains(units.Timer, "OnUnitInactiveSec=15m") {
 		t.Fatalf("timer unit missing interval trigger:\n%s", units.Timer)
 	}
 	if !strings.Contains(units.Timer, "OnActiveSec=15m") {
 		t.Fatalf("timer unit missing initial interval trigger:\n%s", units.Timer)
 	}
+	if strings.Contains(units.Timer, "OnUnitActiveSec=") {
+		t.Fatalf("timer unit uses fixed-rate rather than fixed-delay semantics:\n%s", units.Timer)
+	}
 	if strings.Contains(units.Timer, "OnCalendar=") {
 		t.Fatalf("timer unit unexpectedly contains OnCalendar:\n%s", units.Timer)
+	}
+	for _, policy := range []string{"AccuracySec=1s", "RandomizedDelaySec=0", "WakeSystem=false"} {
+		if !strings.Contains(units.Timer, policy) {
+			t.Fatalf("timer unit missing explicit policy %q:\n%s", policy, units.Timer)
+		}
+	}
+	if strings.Contains(units.Timer, "Persistent=") {
+		t.Fatalf("monotonic timer unexpectedly claims persistence:\n%s", units.Timer)
 	}
 }
 

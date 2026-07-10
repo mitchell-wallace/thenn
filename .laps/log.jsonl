@@ -7,3 +7,5 @@
 {"ts":"2026-07-10T07:39:57Z","event":"created","cmd":"add","file":"laps.json","lap":"then-e79d","title":"thenn job: define reliable wake-timer semantics","assignee":"senior","scope":"root","detail":{"position":"head"},"session":""}
 {"ts":"2026-07-10T07:40:02Z","event":"completed","cmd":"done","file":"laps.json","lap":"then-5858","title":"thenn job: verification report incl. wake-timer fitness","assignee":"verify","scope":"root","detail":{},"session":""}
 {"ts":"2026-07-10T07:40:02Z","event":"unclaimed","cmd":"done","file":"laps.json","lap":"then-5858","title":"thenn job: verification report incl. wake-timer fitness","assignee":"verify","scope":"root","detail":{"reason":"completed"},"session":""}
+{"ts":"2026-07-10T07:52:22Z","event":"claimed","cmd":"claim","file":"laps.json","lap":"then-e79d","title":"thenn job: define reliable wake-timer semantics","assignee":"senior","scope":"root","detail":{},"session":""}
+{"ts":"2026-07-10T08:00:13Z","event":"created","cmd":"add","file":"laps.json","lap":"then-2e29","title":"verify thenn wake-timer semantics on real systemd","assignee":"verify","scope":"root","detail":{"position":"tail"},"session":""}

@@ -224,7 +224,7 @@ func (m *jobTUIModel) renderJobDetails(width, height int) string {
 	if selected.ParsedSchedule.OnUnitActiveSec != "" {
 		b.WriteString("Systemd:  OnActiveSec=")
 		b.WriteString(selected.ParsedSchedule.OnUnitActiveSec)
-		b.WriteString(", OnUnitActiveSec=")
+		b.WriteString(", OnUnitInactiveSec=")
 		b.WriteString(selected.ParsedSchedule.OnUnitActiveSec)
 		b.WriteByte('\n')
 	}

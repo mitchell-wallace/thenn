@@ -333,6 +333,12 @@ Dates:
 
 Times:
   Use 9pm, 9:30pm, 21:00, or 09:30
+
+Timer policy:
+  "every" waits the full duration after the prior command finishes. Suspend,
+  shutdown, and user-manager downtime do not count toward that duration.
+  Calendar schedules catch up once after downtime. Jobs never overlap
+  themselves, add no randomized delay, and do not wake suspended hardware.
 `)
 	},
 }
@@ -384,7 +390,7 @@ func printJobMetadata(cmd *cobra.Command, metadata *job.Metadata) {
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "OnCalendar: %s\n", metadata.ParsedSchedule.OnCalendar)
 	}
 	if metadata.ParsedSchedule.OnUnitActiveSec != "" {
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "OnUnitActiveSec: %s\n", metadata.ParsedSchedule.OnUnitActiveSec)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "OnUnitInactiveSec: %s\n", metadata.ParsedSchedule.OnUnitActiveSec)
 	}
 	if metadata.ParsedSchedule.Until != nil {
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Until: %s\n", metadata.ParsedSchedule.Until.Format(time.RFC3339))
