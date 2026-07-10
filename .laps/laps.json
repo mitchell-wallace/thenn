@@ -19,10 +19,22 @@
       "title": "thenn job: verification report incl. wake-timer fitness",
       "description": "Verify the preceding lap's changes by reading the diff and running the gates (just build, just test, just lint), then black-box exercise the real binary (go build to a temp path) in this container: run every `thenn job` subcommand and confirm the graceful no-systemd error appears everywhere with correct exit codes; confirm `thenn job syntax` and help output still render; spot-check unit-file generation via tests or any dry-run seam.\n\nThen write tmp/job-verification-2026-07-10.md (create tmp/) with: commands run, observed output, requirement pass/fail, and a short \"wake-timer fitness\" assessment: given the code (not runnable here), would `thenn job every 5h -- \u003ccommand\u003e` reliably fire on a systemd host? Note residual risks (missed timers on suspend, Persistent= setting, RandomizedDelay, what happens if the command is still running at next fire). Do not fix things; report.",
       "assignee": "verify",
-      "isDone": false,
+      "isDone": true,
       "order": 131072,
       "createdAt": "2026-07-10T07:24:08.705636432Z",
-      "updatedAt": "2026-07-10T07:24:08.705636432Z",
+      "updatedAt": "2026-07-10T07:40:02.348043768Z",
+      "completedAt": "2026-07-10T07:40:02.348043768Z"
+    },
+    {
+      "kind": "lap",
+      "id": "then-e79d",
+      "title": "thenn job: define reliable wake-timer semantics",
+      "description": "Decide and implement the missed-fire and overlap policy needed before presenting `thenn job every` as a reliable agent wake timer. Cover suspend/offline behavior (including whether a realtime persistent timer is needed), make RandomizedDelay policy explicit, define behavior when a prior Type=oneshot command is still running at the next event, document lingering requirements, and add a real-systemd integration test. Follow with a verify lap.",
+      "assignee": "senior",
+      "isDone": false,
+      "order": 65536,
+      "createdAt": "2026-07-10T07:39:57.725967837Z",
+      "updatedAt": "2026-07-10T07:39:57.725967837Z",
       "completedAt": null
     }
   ]
