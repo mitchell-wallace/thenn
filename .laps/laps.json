@@ -7,11 +7,11 @@
       "title": "thenn job: graceful behaviour without systemd + lifecycle hardening",
       "description": "Context: `thenn job` (recently added) manages scheduled jobs backed by user-level systemd timers (see internal/ job implementation and `thenn job syntax`). It is intended to eventually serve as a wake-timer for long-running agent sessions, so its failure modes matter.\n\nInvestigate first:\n- How every `thenn job` subcommand (daily/every/once/weekly/weekdays/list/show/run/pause/resume/remove/logs) behaves when `systemctl --user` is unavailable (this container has NO systemd: no systemctl binary, no /run/systemd, no user dbus). Reproduce here.\n- Read the job lifecycle code for correctness issues: unit file generation/escaping (commands with quotes/spaces), name collisions, remove of a running job, logs when journald is absent, list parsing when systemctl output is empty/errors.\n\nDeliverables:\n1. Every job subcommand fails fast with ONE clear, actionable error when user-level systemd is unavailable (e.g. \"thenn job requires user-level systemd (systemctl --user), which is not available here\"), instead of raw exec errors or panics. Detection should distinguish \"systemctl missing\" from \"systemd not running / no user bus\".\n2. Fix any real lifecycle bugs found (escaping, collisions, state edge cases). Keep fixes surgical.\n3. Tests: unit tests for the detection seam and unit-file generation; the no-systemd error path must be covered by a test that runs in this container.\n4. README/help: document the systemd requirement.\n\nGates (all must pass): just build, just test, just lint.",
       "assignee": "senior",
-      "isDone": false,
+      "isDone": true,
       "order": 65536,
       "createdAt": "2026-07-10T07:24:08.690151276Z",
-      "updatedAt": "2026-07-10T07:24:08.690151276Z",
-      "completedAt": null
+      "updatedAt": "2026-07-10T07:36:04.005202999Z",
+      "completedAt": "2026-07-10T07:36:04.005202999Z"
     },
     {
       "kind": "lap",
