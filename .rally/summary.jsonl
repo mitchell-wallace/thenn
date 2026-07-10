@@ -1,1 +1,2 @@
 {"outing_id":"relay-1-run-1","summary":"Hardened thenn job with systemd availability preflight, collision-safe lifecycle cleanup, running-service removal, and full tests/docs; all gates pass.","updated_at":"2026-07-10T07:36:21Z","laps_completed":["then-2c00"]}
+{"outing_id":"relay-1-run-2","summary":"Verified thenn job hardening gates, no-systemd behavior, and unit seams; recorded wake-timer limits.","updated_at":"2026-07-10T07:40:10Z","laps_completed":["then-5858"]}
