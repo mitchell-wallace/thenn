@@ -115,10 +115,22 @@
       "title": "verify wake-timer semantics on a qualifying systemd user manager",
       "description": "Required real-systemd evidence remains unavailable on the 2026-07-10 container: Linux host has no systemctl and XDG_RUNTIME_DIR is unset. On a qualifying Linux host with systemctl installed, XDG_RUNTIME_DIR set, and systemctl --user show-environment succeeding, run THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. A passing result must be non-skipped and capture three serialized oneshot start/end runs, each later start \u003e=200ms after prior completion, and cleanup activity: disable --now, stop service, clean --what=state, unlink service/timer, daemon-reload, reset-failed. Do not accept a skip as passing.",
       "assignee": "verify",
-      "isDone": false,
+      "isDone": true,
       "order": -262144,
       "createdAt": "2026-07-10T08:16:28.297796957Z",
-      "updatedAt": "2026-07-10T08:16:28.297796957Z",
+      "updatedAt": "2026-07-10T08:18:06.6765268Z",
+      "completedAt": "2026-07-10T08:18:06.6765268Z"
+    },
+    {
+      "kind": "lap",
+      "id": "then-8743",
+      "title": "verify wake-timer semantics on a qualifying systemd user manager",
+      "description": "Run only on a Linux host with systemctl installed, non-empty XDG_RUNTIME_DIR, and a successful systemctl --user show-environment. Execute THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. Passing evidence must be non-skipped and demonstrate three serialized oneshot start/end pairs, each subsequent start at least 200ms after the preceding completion, plus cleanup: disable --now, stop service, clean --what=state, unlink service/timer, daemon-reload, reset-failed. Do not treat a skip as pass.",
+      "assignee": "verify",
+      "isDone": false,
+      "order": -327680,
+      "createdAt": "2026-07-10T08:18:06.659211446Z",
+      "updatedAt": "2026-07-10T08:18:06.659211446Z",
       "completedAt": null
     }
   ]
