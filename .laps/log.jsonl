@@ -77,3 +77,4 @@
 {"ts":"2026-07-10T08:42:40Z","event":"claimed","cmd":"claim","file":"laps.json","lap":"then-bb63","title":"Fix real-systemd cleanup porta...","scope":"root","detail":{},"session":""}
 {"ts":"2026-07-10T08:47:06Z","event":"completed","cmd":"done","file":"laps.json","lap":"then-bb63","title":"Fix real-systemd cleanup porta...","scope":"root","detail":{},"session":""}
 {"ts":"2026-07-10T08:47:06Z","event":"unclaimed","cmd":"done","file":"laps.json","lap":"then-bb63","title":"Fix real-systemd cleanup porta...","scope":"root","detail":{"reason":"completed"},"session":""}
+{"ts":"2026-07-10T08:47:57Z","event":"deleted","cmd":"delete","file":"laps.json","lap":"then-975b","title":"provide qualifying user-manager host for real-systemd verification","assignee":"senior","scope":"root","detail":{},"session":""}

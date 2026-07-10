@@ -227,18 +227,6 @@
       "createdAt": "2026-07-10T08:41:47.686993578Z",
       "updatedAt": "2026-07-10T08:47:06.642606008Z",
       "completedAt": "2026-07-10T08:47:06.642606008Z"
-    },
-    {
-      "kind": "lap",
-      "id": "then-975b",
-      "title": "provide qualifying user-manager host for real-systemd verification",
-      "description": "Current runner is Linux but has no systemctl and XDG_RUNTIME_DIR is empty, so it cannot execute the required real-systemd check. Dispatch this validation to a Linux host with systemctl installed, non-empty XDG_RUNTIME_DIR, and a working systemctl --user show-environment. On that host run exactly: THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. Capture complete output and verify exit 0, three serialized REAL_SYSTEMD_TIMING pairs, two gaps \u003e=200000000 ns, and all seven required REAL_SYSTEMD_CLEANUP actions status=ok. No source changes are requested.",
-      "assignee": "senior",
-      "isDone": false,
-      "order": -786432,
-      "createdAt": "2026-07-10T08:35:20.683218853Z",
-      "updatedAt": "2026-07-10T08:35:20.683218853Z",
-      "completedAt": null
     }
   ]
 }
