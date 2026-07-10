@@ -103,10 +103,22 @@
       "title": "verify wake-timer semantics on a qualifying systemd user manager",
       "description": "Blocked verification rerun: current 2026-07-10 Linux host has no systemctl and XDG_RUNTIME_DIR is unset, so the required integration gate was not run. On a Linux host with systemctl installed, XDG_RUNTIME_DIR set, and systemctl --user show-environment succeeding, run: THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. Capture non-skipped output proving three serialized oneshot runs, every later start is \u003e=200ms after the preceding completion, and cleanup invokes disable --now, stop service, clean --what=state, unlink service/timer, daemon-reload, and reset-failed. Do not treat a skip as passing.",
       "assignee": "verify",
-      "isDone": false,
+      "isDone": true,
       "order": -196608,
       "createdAt": "2026-07-10T08:15:02.069021816Z",
-      "updatedAt": "2026-07-10T08:15:02.069021816Z",
+      "updatedAt": "2026-07-10T08:16:28.319870047Z",
+      "completedAt": "2026-07-10T08:16:28.319870047Z"
+    },
+    {
+      "kind": "lap",
+      "id": "then-7c95",
+      "title": "verify wake-timer semantics on a qualifying systemd user manager",
+      "description": "Required real-systemd evidence remains unavailable on the 2026-07-10 container: Linux host has no systemctl and XDG_RUNTIME_DIR is unset. On a qualifying Linux host with systemctl installed, XDG_RUNTIME_DIR set, and systemctl --user show-environment succeeding, run THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. A passing result must be non-skipped and capture three serialized oneshot start/end runs, each later start \u003e=200ms after prior completion, and cleanup activity: disable --now, stop service, clean --what=state, unlink service/timer, daemon-reload, reset-failed. Do not accept a skip as passing.",
+      "assignee": "verify",
+      "isDone": false,
+      "order": -262144,
+      "createdAt": "2026-07-10T08:16:28.297796957Z",
+      "updatedAt": "2026-07-10T08:16:28.297796957Z",
       "completedAt": null
     }
   ]
