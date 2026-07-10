@@ -222,11 +222,11 @@
       "id": "then-bb63",
       "title": "Fix real-systemd cleanup porta...",
       "description": "Fix real-systemd cleanup portability: make no matching timer state and already-unloaded reset-failed cleanup idempotently successful (or safely reorder cleanup), add focused tests, then rerun the exact qualifying-host TestRealSystemd gate and require exit 0 with all seven status=ok actions.",
-      "isDone": false,
+      "isDone": true,
       "order": -851968,
       "createdAt": "2026-07-10T08:41:47.686993578Z",
-      "updatedAt": "2026-07-10T08:41:47.686993578Z",
-      "completedAt": null
+      "updatedAt": "2026-07-10T08:47:06.642606008Z",
+      "completedAt": "2026-07-10T08:47:06.642606008Z"
     },
     {
       "kind": "lap",

@@ -162,15 +162,3 @@ func (b *SystemdBackend) CheckAvailable(ctx context.Context) error {
 func commandNotFound(err error) bool {
 	return errors.Is(err, exec.ErrNotFound)
 }
-
-// benignSystemdCleanupError reports whether msg is a systemctl cleanup
-// failure that indicates the target was already clean or unloaded, so the
-// cleanup step is already complete and may be treated as idempotent success.
-//
-// systemd emits "No matching resources found." when clean has nothing to
-// remove (for example an OnActiveSec timer with no Persistent= state), and
-// "Unit ... not loaded." when reset-failed targets a unit the manager has
-// already forgotten after a daemon-reload.
-func benignSystemdCleanupError(msg string) bool {
-	return strings.Contains(msg, "No matching resources found") || strings.Contains(msg, "not loaded")
-}
