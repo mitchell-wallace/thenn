@@ -91,10 +91,22 @@
       "title": "verify wake-timer semantics on a provisioned systemd user manager",
       "description": "Run only on Linux with systemctl installed, XDG_RUNTIME_DIR set, and systemctl --user show-environment succeeding. Execute THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. Record non-skipped output proving three serialized oneshot runs and each later start is \u003e=200ms after previous completion; also verify cleanup executes: disable --now, stop service, clean --what=state, unlink service/timer, daemon-reload, reset-failed. The prior gate skipped because this host lacks systemctl and XDG_RUNTIME_DIR.",
       "assignee": "verify",
-      "isDone": false,
+      "isDone": true,
       "order": -131072,
       "createdAt": "2026-07-10T08:12:59.398963827Z",
-      "updatedAt": "2026-07-10T08:12:59.398963827Z",
+      "updatedAt": "2026-07-10T08:15:10.448483572Z",
+      "completedAt": "2026-07-10T08:15:10.448483572Z"
+    },
+    {
+      "kind": "lap",
+      "id": "then-84e7",
+      "title": "verify wake-timer semantics on a qualifying systemd user manager",
+      "description": "Blocked verification rerun: current 2026-07-10 Linux host has no systemctl and XDG_RUNTIME_DIR is unset, so the required integration gate was not run. On a Linux host with systemctl installed, XDG_RUNTIME_DIR set, and systemctl --user show-environment succeeding, run: THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. Capture non-skipped output proving three serialized oneshot runs, every later start is \u003e=200ms after the preceding completion, and cleanup invokes disable --now, stop service, clean --what=state, unlink service/timer, daemon-reload, and reset-failed. Do not treat a skip as passing.",
+      "assignee": "verify",
+      "isDone": false,
+      "order": -196608,
+      "createdAt": "2026-07-10T08:15:02.069021816Z",
+      "updatedAt": "2026-07-10T08:15:02.069021816Z",
       "completedAt": null
     }
   ]
