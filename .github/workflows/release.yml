@@ -1,45 +1,35 @@
-name: release
+name: real-systemd verification
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  real-systemd:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check if release already exists
-        id: check
-        run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          if gh release view "$TAG" --json tagName --jq .tagName > /dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Release $TAG already exists, skipping."
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-go@v5
-        if: steps.check.outputs.exists != 'true'
         with:
           go-version-file: go.mod
 
-      - uses: goreleaser/goreleaser-action@v6
-        if: steps.check.outputs.exists != 'true'
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Start a qualifying systemd user manager
+        shell: bash
+        run: |
+          set -euo pipefail
+          uid="$(id -u)"
+          sudo loginctl enable-linger "$USER"
+          sudo systemctl start "user-runtime-dir@${uid}.service"
+          sudo systemctl start "user@${uid}.service"
+          echo "XDG_RUNTIME_DIR=/run/user/${uid}" >> "$GITHUB_ENV"
+          export XDG_RUNTIME_DIR="/run/user/${uid}"
+          test -n "$XDG_RUNTIME_DIR"
+          command -v systemctl
+          systemctl --user show-environment
+
+      - name: Run real-systemd integration verification
+        run: THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd
