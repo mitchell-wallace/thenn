@@ -56,7 +56,7 @@ type jobTUIModel struct {
 }
 
 func runJobTUI(cmd *cobra.Command) error {
-	store, backend, err := newJobStoreAndBackend()
+	store, backend, err := newAvailableJobStoreAndBackend(cmd.Context())
 	if err != nil {
 		return err
 	}
@@ -357,10 +357,6 @@ func (m *jobTUIModel) deleteSelected() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), jobTUIActionTimeout)
 	defer cancel()
-	if err := m.backend.DisableNow(ctx, selected.Label); err != nil {
-		m.err = err.Error()
-		return
-	}
 	if err := m.backend.Remove(ctx, selected.Label); err != nil {
 		m.err = err.Error()
 		return

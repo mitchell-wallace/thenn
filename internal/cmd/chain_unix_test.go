@@ -6,6 +6,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -152,6 +153,8 @@ func TestE2E_CommandFlag_RealTerminal(t *testing.T) {
 
 	// Run thenn with -c in a real terminal
 	cmd := exec.Command(binaryPath, "10ms", "-c", "echo 'c-flag-success'")
+	// Keep the test independent of interactive startup files in the host's shell.
+	cmd.Env = append(os.Environ(), "SHELL=sh")
 	cmd.Stdin = tty
 	cmd.Stdout = tty
 	cmd.Stderr = tty

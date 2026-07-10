@@ -53,8 +53,18 @@ func (b *SystemdBackend) Stop(ctx context.Context, label string) error {
 	return ErrUnsupported
 }
 
+// StopService returns ErrUnsupported on non-Linux platforms.
+func (b *SystemdBackend) StopService(ctx context.Context, label string) error {
+	return ErrUnsupported
+}
+
 // Remove returns ErrUnsupported on non-Linux platforms.
 func (b *SystemdBackend) Remove(ctx context.Context, label string) error {
+	return ErrUnsupported
+}
+
+// RollbackInstall returns ErrUnsupported on non-Linux platforms.
+func (b *SystemdBackend) RollbackInstall(ctx context.Context, label string) error {
 	return ErrUnsupported
 }
 

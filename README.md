@@ -96,7 +96,7 @@ thenn <duration> <command> [args...]
 
 ### Headless Jobs on Linux
 
-`thenn job` uses `systemd --user` timers. Jobs are labelled, stored under the user's `thenn` config directory, and installed as managed user units named like `thenn-job-<label>.timer` and `thenn-job-<label>.service`.
+`thenn job` requires Linux, the `systemctl` client, and a reachable `systemd --user` service manager. Minimal containers, WSL environments, and headless sessions without a systemd user bus are not supported unless a user manager has been configured. Jobs are labelled, stored under the user's `thenn` config directory, and installed as managed user units named like `thenn-job-<label>.timer` and `thenn-job-<label>.service`.
 
 Create jobs with verb-first scheduling commands:
 
@@ -140,6 +140,7 @@ Notes:
 *   `pause` disables and stops the timer; it does not kill a currently running service command.
 *   `resume` enables and starts the timer again.
 *   `run` asks systemd to start the service immediately.
+*   `remove` stops both the timer and any currently running service command before deleting the job.
 *   Logs come from `journalctl --user-unit thenn-job-<label>.service`.
 *   On systems where user services should run while logged out, you may need to enable lingering with `loginctl enable-linger $USER`.
 

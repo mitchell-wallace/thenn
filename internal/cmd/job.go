@@ -21,6 +21,8 @@ var jobCmd = &cobra.Command{
 	Short: "Manage scheduled jobs",
 	Long: `Manage scriptable scheduled jobs backed by user-level systemd timers.
 
+Requires Linux with systemctl installed and a reachable systemd user service manager.
+
 Run "thenn job syntax" for creation examples.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -71,6 +73,10 @@ func createJob(cmd *cobra.Command, verb, label string, args []string) error {
 	if err != nil {
 		return err
 	}
+	store, backend, err := newAvailableJobStoreAndBackend(cmd.Context())
+	if err != nil {
+		return err
+	}
 	if err := validateJobCommand(commandArgv); err != nil {
 		return err
 	}
@@ -94,10 +100,6 @@ func createJob(cmd *cobra.Command, verb, label string, args []string) error {
 	if err != nil {
 		return err
 	}
-	store, backend, err := newJobStoreAndBackend()
-	if err != nil {
-		return err
-	}
 	if _, err := store.Load(metadata.Label); err == nil {
 		return fmt.Errorf("job %q already exists; remove it first or choose a different --label", metadata.Label)
 	} else if !errors.Is(err, os.ErrNotExist) {
@@ -107,7 +109,7 @@ func createJob(cmd *cobra.Command, verb, label string, args []string) error {
 		return err
 	}
 	if err := backend.Install(cmd.Context(), metadata); err != nil {
-		rollbackJobCreate(cmd.Context(), store, backend, metadata.Label)
+		_ = store.Delete(metadata.Label)
 		return err
 	}
 	if err := backend.EnableNow(cmd.Context(), metadata.Label); err != nil {
@@ -148,7 +150,7 @@ var jobListCmd = &cobra.Command{
 	Short: "List scheduled jobs",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, _, err := newJobStoreAndBackend()
+		store, _, err := newAvailableJobStoreAndBackend(cmd.Context())
 		if err != nil {
 			return err
 		}
@@ -173,7 +175,7 @@ var jobShowCmd = &cobra.Command{
 	Short: "Show job metadata and timer status",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		metadata, backend, err := loadJob(args[0])
+		metadata, backend, err := loadAvailableJob(cmd.Context(), args[0])
 		if err != nil {
 			return err
 		}
@@ -204,7 +206,7 @@ var jobLogsCmd = &cobra.Command{
 	Short: "Show recent job logs",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		metadata, backend, err := loadJob(args[0])
+		metadata, backend, err := loadAvailableJob(cmd.Context(), args[0])
 		if err != nil {
 			return err
 		}
@@ -225,7 +227,7 @@ var jobPauseCmd = &cobra.Command{
 	Short: "Disable and stop a job timer",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		metadata, backend, err := loadJob(args[0])
+		metadata, backend, err := loadAvailableJob(cmd.Context(), args[0])
 		if err != nil {
 			return err
 		}
@@ -242,7 +244,7 @@ var jobResumeCmd = &cobra.Command{
 	Short: "Enable and start a job timer",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		metadata, backend, err := loadJob(args[0])
+		metadata, backend, err := loadAvailableJob(cmd.Context(), args[0])
 		if err != nil {
 			return err
 		}
@@ -259,13 +261,9 @@ var jobRemoveCmd = &cobra.Command{
 	Short: "Remove a scheduled job",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, backend, metadata, err := loadJobWithStore(args[0])
+		store, backend, metadata, err := loadAvailableJobWithStore(cmd.Context(), args[0])
 		if err != nil {
 			return err
-		}
-		var disableErr error
-		if err := backend.DisableNow(cmd.Context(), metadata.Label); err != nil {
-			disableErr = err
 		}
 		if err := backend.Remove(cmd.Context(), metadata.Label); err != nil {
 			return err
@@ -273,16 +271,13 @@ var jobRemoveCmd = &cobra.Command{
 		if err := store.Delete(metadata.Label); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-		if disableErr != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "thenn: warning: could not disable timer before removal: %v\n", disableErr)
-		}
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "removed job %s\n", metadata.Label)
 		return nil
 	},
 }
 
 func rollbackJobCreate(ctx context.Context, store *job.Store, backend *job.SystemdBackend, label string) {
-	_ = backend.Remove(ctx, label)
+	_ = backend.RollbackInstall(ctx, label)
 	_ = store.Delete(label)
 }
 
@@ -291,7 +286,7 @@ var jobRunCmd = &cobra.Command{
 	Short: "Start a job service now",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		metadata, backend, err := loadJob(args[0])
+		metadata, backend, err := loadAvailableJob(cmd.Context(), args[0])
 		if err != nil {
 			return err
 		}
@@ -354,13 +349,24 @@ func newJobStoreAndBackend() (*job.Store, *job.SystemdBackend, error) {
 	return store, backend, nil
 }
 
-func loadJob(label string) (job.Metadata, *job.SystemdBackend, error) {
-	_, backend, metadata, err := loadJobWithStore(label)
+func newAvailableJobStoreAndBackend(ctx context.Context) (*job.Store, *job.SystemdBackend, error) {
+	store, backend, err := newJobStoreAndBackend()
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := backend.CheckAvailable(ctx); err != nil {
+		return nil, nil, err
+	}
+	return store, backend, nil
+}
+
+func loadAvailableJob(ctx context.Context, label string) (job.Metadata, *job.SystemdBackend, error) {
+	_, backend, metadata, err := loadAvailableJobWithStore(ctx, label)
 	return metadata, backend, err
 }
 
-func loadJobWithStore(label string) (*job.Store, *job.SystemdBackend, job.Metadata, error) {
-	store, backend, err := newJobStoreAndBackend()
+func loadAvailableJobWithStore(ctx context.Context, label string) (*job.Store, *job.SystemdBackend, job.Metadata, error) {
+	store, backend, err := newAvailableJobStoreAndBackend(ctx)
 	if err != nil {
 		return nil, nil, job.Metadata{}, err
 	}
@@ -394,9 +400,15 @@ func formatJobCommand(argv []string) string {
 }
 
 func execJob(ctx context.Context, label string) error {
-	metadata, backend, err := loadJob(label)
+	// This path is invoked by the service unit itself. Do not block the stored
+	// command if the user bus becomes transiently unavailable after activation.
+	store, backend, err := newJobStoreAndBackend()
 	if err != nil {
 		return err
+	}
+	metadata, err := store.Load(label)
+	if err != nil {
+		return fmt.Errorf("load job %q: %w", label, err)
 	}
 	if metadata.ParsedSchedule.Until != nil && !metadata.ParsedSchedule.Until.After(time.Now()) {
 		return backend.DisableNow(ctx, metadata.Label)

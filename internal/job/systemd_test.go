@@ -8,7 +8,8 @@ import (
 
 func TestRenderUnits(t *testing.T) {
 	metadata := testMetadata(t)
-	metadata.CWD = "/home/test/with space "
+	metadata.CWD = `/home/test/$workspace/with space % done`
+	metadata.CommandArgv = []string{"sh", "-c", `printf '%s\n' "hello world"`}
 	units, err := RenderUnits(metadata, `/opt/$TOOLS/thenn "bin"`)
 	if err != nil {
 		t.Fatalf("RenderUnits() error = %v", err)
@@ -17,8 +18,11 @@ func TestRenderUnits(t *testing.T) {
 	serviceChecks := []string{
 		"Description=thenn job backup-daily",
 		"Type=oneshot",
-		`WorkingDirectory="/home/test/with space "`,
+		`WorkingDirectory="/home/test/$workspace/with space %% done"`,
 		`ExecStart="/opt/$$TOOLS/thenn \"bin\"" job exec backup-daily`,
+	}
+	if strings.Contains(units.Service, "hello world") {
+		t.Fatalf("service unit embedded command argv instead of using stored metadata:\n%s", units.Service)
 	}
 	for _, check := range serviceChecks {
 		if !strings.Contains(units.Service, check) {

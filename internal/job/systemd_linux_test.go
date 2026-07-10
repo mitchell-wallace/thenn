@@ -4,15 +4,19 @@ package job
 
 import (
 	"context"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
 type fakeRunner struct {
 	calls  []runCall
 	output []byte
+	err    error
 }
 
 type runCall struct {
@@ -22,7 +26,7 @@ type runCall struct {
 
 func (f *fakeRunner) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
 	f.calls = append(f.calls, runCall{name: name, args: append([]string(nil), args...)})
-	return f.output, nil
+	return f.output, f.err
 }
 
 func TestSystemdBackendWithFakeSystemctl(t *testing.T) {
@@ -96,9 +100,78 @@ func TestSystemdBackendWithFakeSystemctl(t *testing.T) {
 		{name: "systemctl", args: []string{"--user", "disable", "--now", "thenn-job-backup-daily.timer"}},
 		{name: "journalctl", args: []string{"--user-unit", "thenn-job-backup-daily.service", "--no-pager", "-n", "20"}},
 		{name: "systemctl", args: []string{"--user", "disable", "--now", "thenn-job-backup-daily.timer"}},
+		{name: "systemctl", args: []string{"--user", "stop", "thenn-job-backup-daily.service"}},
 		{name: "systemctl", args: []string{"--user", "daemon-reload"}},
 	}
 	if !reflect.DeepEqual(runner.calls, want) {
 		t.Fatalf("systemctl calls = %#v, want %#v", runner.calls, want)
+	}
+}
+
+func TestCheckAvailable(t *testing.T) {
+	tests := []struct {
+		name    string
+		err     error
+		wantErr error
+	}{
+		{name: "empty output is available"},
+		{
+			name:    "systemctl missing",
+			err:     &exec.Error{Name: "systemctl", Err: exec.ErrNotFound},
+			wantErr: ErrSystemctlNotFound,
+		},
+		{
+			name:    "user manager unreachable",
+			err:     errors.New("Failed to connect to bus: No such file or directory"),
+			wantErr: ErrUserSystemdUnavailable,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			runner := &fakeRunner{err: tc.err}
+			backend := &SystemdBackend{Runner: runner}
+			err := backend.CheckAvailable(context.Background())
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("CheckAvailable() error = %v, want %v", err, tc.wantErr)
+			}
+			wantCalls := []runCall{{name: "systemctl", args: []string{"--user", "show-environment"}}}
+			if !reflect.DeepEqual(runner.calls, wantCalls) {
+				t.Fatalf("calls = %#v, want %#v", runner.calls, wantCalls)
+			}
+		})
+	}
+}
+
+func TestInstallRejectsExistingUnitsWithoutOverwriting(t *testing.T) {
+	unitDir := t.TempDir()
+	timerPath := filepath.Join(unitDir, TimerUnitName("backup-daily"))
+	if err := os.WriteFile(timerPath, []byte("existing timer\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	backend := &SystemdBackend{UnitDir: unitDir, BinaryPath: "/usr/bin/thenn", Runner: &fakeRunner{}}
+
+	err := backend.Install(context.Background(), testMetadata(t))
+	if err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("Install() error = %v, want unit collision", err)
+	}
+	contents, readErr := os.ReadFile(timerPath)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(contents) != "existing timer\n" {
+		t.Fatalf("existing timer was overwritten: %q", contents)
+	}
+	servicePath := filepath.Join(unitDir, ServiceUnitName("backup-daily"))
+	if _, statErr := os.Stat(servicePath); !os.IsNotExist(statErr) {
+		t.Fatalf("partially-created service was not cleaned up: %v", statErr)
+	}
+}
+
+func TestJournalReportsMissingJournalctl(t *testing.T) {
+	runner := &fakeRunner{err: &exec.Error{Name: "journalctl", Err: exec.ErrNotFound}}
+	backend := &SystemdBackend{Runner: runner}
+	_, err := backend.Journal(context.Background(), "backup-daily", 20)
+	if !errors.Is(err, ErrJournalctlNotFound) {
+		t.Fatalf("Journal() error = %v, want %v", err, ErrJournalctlNotFound)
 	}
 }

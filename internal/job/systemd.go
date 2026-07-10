@@ -10,7 +10,16 @@ import (
 )
 
 // ErrUnsupported is returned by the systemd backend on unsupported platforms.
-var ErrUnsupported = errors.New("job systemd backend is unsupported on this platform")
+var ErrUnsupported = errors.New("thenn job requires Linux with user-level systemd (systemctl --user)")
+
+// ErrSystemctlNotFound means the systemctl client is not installed or is not in PATH.
+var ErrSystemctlNotFound = errors.New("thenn job requires user-level systemd (systemctl --user), but systemctl was not found in PATH; install systemd to use job commands")
+
+// ErrUserSystemdUnavailable means systemctl exists but cannot reach the user manager.
+var ErrUserSystemdUnavailable = errors.New("thenn job requires user-level systemd (systemctl --user), but the user service manager is not reachable; run this command from a systemd user session")
+
+// ErrJournalctlNotFound means journalctl is unavailable for reading job logs.
+var ErrJournalctlNotFound = errors.New("journalctl was not found in PATH; install journalctl (normally provided by systemd) to view job logs")
 
 // CommandRunner abstracts process execution for systemctl calls.
 type CommandRunner interface {
@@ -72,7 +81,7 @@ Description=thenn job %s
 Type=oneshot
 WorkingDirectory=%s
 ExecStart=%s job exec %s
-`, metadata.Label, quoteSystemdArg(metadata.CWD), quoteSystemdArg(binaryPath), metadata.Label)
+`, metadata.Label, quoteSystemdArg(metadata.CWD, false), quoteSystemdArg(binaryPath, true), metadata.Label)
 
 	timer := fmt.Sprintf(`[Unit]
 Description=Run thenn job %s
@@ -110,9 +119,11 @@ func TimerUnitName(label string) string {
 
 var safeSystemdArgRe = regexp.MustCompile(`^[A-Za-z0-9_@%+=:,./-]+$`)
 
-func quoteSystemdArg(arg string) string {
+func quoteSystemdArg(arg string, escapeDollar bool) string {
 	arg = strings.ReplaceAll(arg, "%", "%%")
-	arg = strings.ReplaceAll(arg, "$", "$$")
+	if escapeDollar {
+		arg = strings.ReplaceAll(arg, "$", "$$")
+	}
 	if safeSystemdArgRe.MatchString(arg) {
 		return arg
 	}
@@ -131,4 +142,20 @@ func (b *SystemdBackend) runner() CommandRunner {
 func (b *SystemdBackend) systemctl(ctx context.Context, args ...string) ([]byte, error) {
 	fullArgs := append([]string{"--user"}, args...)
 	return b.runner().Run(ctx, "systemctl", fullArgs...)
+}
+
+// CheckAvailable verifies that systemctl can reach the user service manager.
+func (b *SystemdBackend) CheckAvailable(ctx context.Context) error {
+	_, err := b.systemctl(ctx, "show-environment")
+	if err == nil {
+		return nil
+	}
+	if commandNotFound(err) {
+		return ErrSystemctlNotFound
+	}
+	return ErrUserSystemdUnavailable
+}
+
+func commandNotFound(err error) bool {
+	return errors.Is(err, exec.ErrNotFound)
 }
