@@ -31,11 +31,11 @@
       "title": "thenn job: define reliable wake-timer semantics",
       "description": "Decide and implement the missed-fire and overlap policy needed before presenting `thenn job every` as a reliable agent wake timer. Cover suspend/offline behavior (including whether a realtime persistent timer is needed), make RandomizedDelay policy explicit, define behavior when a prior Type=oneshot command is still running at the next event, document lingering requirements, and add a real-systemd integration test. Follow with a verify lap.",
       "assignee": "senior",
-      "isDone": false,
+      "isDone": true,
       "order": 65536,
       "createdAt": "2026-07-10T07:39:57.725967837Z",
-      "updatedAt": "2026-07-10T07:39:57.725967837Z",
-      "completedAt": null
+      "updatedAt": "2026-07-10T08:01:38.648768402Z",
+      "completedAt": "2026-07-10T08:01:38.648768402Z"
     },
     {
       "kind": "lap",
