@@ -37,3 +37,27 @@ jobs:
       - uses: golangci/golangci-lint-action@v7
         with:
           version: latest
+
+  real-systemd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Start a qualifying systemd user manager
+        shell: bash
+        run: |
+          set -euo pipefail
+          uid="$(id -u)"
+          sudo loginctl enable-linger "$USER"
+          sudo systemctl start "user-runtime-dir@${uid}.service"
+          sudo systemctl start "user@${uid}.service"
+          echo "XDG_RUNTIME_DIR=/run/user/${uid}" >> "$GITHUB_ENV"
+          export XDG_RUNTIME_DIR="/run/user/${uid}"
+          test -n "$XDG_RUNTIME_DIR"
+          command -v systemctl
+          systemctl --user show-environment
+      - name: Run real-systemd integration verification
+        run: THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd
