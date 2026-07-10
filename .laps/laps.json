@@ -199,10 +199,22 @@
       "title": "rerun real-systemd wake-timer verification on qualifying user-manager host",
       "description": "Run only on Linux where systemctl is installed, XDG_RUNTIME_DIR is non-empty, and systemctl --user show-environment succeeds. Then execute exactly: THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. Capture complete output. Pass only if the command exits 0, logs three serialized REAL_SYSTEMD_TIMING start/end pairs, both REAL_SYSTEMD_GAP values are at least 200000000 ns, and all seven REAL_SYSTEMD_CLEANUP actions have status=ok (disable --now timer; stop service; clean --what=state timer; unlink timer; unlink service; daemon-reload; reset-failed service and timer). This container is unqualified: systemctl is absent and XDG_RUNTIME_DIR is empty.",
       "assignee": "verify",
-      "isDone": false,
+      "isDone": true,
       "order": -655360,
       "createdAt": "2026-07-10T08:31:49.512843582Z",
-      "updatedAt": "2026-07-10T08:31:49.512843582Z",
+      "updatedAt": "2026-07-10T08:33:59.316209778Z",
+      "completedAt": "2026-07-10T08:33:59.316209778Z"
+    },
+    {
+      "kind": "lap",
+      "id": "then-2f7d",
+      "title": "rerun real-systemd wake-timer verification on qualifying user-manager host",
+      "description": "Run only on Linux where systemctl is installed, XDG_RUNTIME_DIR is non-empty, and systemctl --user show-environment succeeds. Then execute exactly: THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. Capture complete output. Pass only if exit 0, logs three serialized REAL_SYSTEMD_TIMING start/end pairs, both REAL_SYSTEMD_GAP values are at least 200000000 ns, and all seven REAL_SYSTEMD_CLEANUP actions are status=ok: disable --now timer; stop service; clean --what=state timer; unlink timer; unlink service; daemon-reload; reset-failed service and timer. Current container is unqualified (systemctl absent; XDG_RUNTIME_DIR empty).",
+      "assignee": "verify",
+      "isDone": false,
+      "order": -720896,
+      "createdAt": "2026-07-10T08:33:59.214249448Z",
+      "updatedAt": "2026-07-10T08:33:59.214249448Z",
       "completedAt": null
     }
   ]
