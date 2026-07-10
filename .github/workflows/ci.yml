@@ -50,12 +50,14 @@ jobs:
           go-version: 'stable'
       - name: Start a qualifying systemd user manager
         run: |
+          set -e
           UID_NUM="$(id -u)"
           USER_NAME="$(id -un)"
           RUNTIME_DIR="/run/user/${UID_NUM}"
           sudo loginctl enable-linger "${USER_NAME}" || true
           sudo mkdir -p "${RUNTIME_DIR}"
           sudo chown "${UID_NUM}:${UID_NUM}" "${RUNTIME_DIR}"
+          export XDG_RUNTIME_DIR="${RUNTIME_DIR}"
           echo "XDG_RUNTIME_DIR=${RUNTIME_DIR}" >> "$GITHUB_ENV"
           for _ in $(seq 1 30); do
             if systemctl --user show-environment >/dev/null 2>&1; then
