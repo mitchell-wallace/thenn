@@ -176,3 +176,46 @@ func TestJournalReportsMissingJournalctl(t *testing.T) {
 		t.Fatalf("Journal() error = %v, want %v", err, ErrJournalctlNotFound)
 	}
 }
+
+// failCleanRunner refuses `systemctl clean` (as real systemd does for units
+// without state or already unloaded) but succeeds for everything else.
+type failCleanRunner struct {
+	fakeRunner
+}
+
+func (f *failCleanRunner) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
+	f.calls = append(f.calls, runCall{name: name, args: append([]string(nil), args...)})
+	for _, a := range args {
+		if a == "clean" {
+			return []byte("Failed to clean: Unit is not loaded."), errors.New("exit status 1")
+		}
+	}
+	return f.output, f.err
+}
+
+func TestRemoveSucceedsWhenCleanRefusesAndStampRemoved(t *testing.T) {
+	unitDir, stateDir := t.TempDir(), t.TempDir()
+	backend := &SystemdBackend{UnitDir: unitDir, StateDir: stateDir, BinaryPath: "/usr/bin/thenn", Runner: &failCleanRunner{}}
+	metadata := testMetadata(t)
+	ctx := context.Background()
+	if err := backend.Install(ctx, metadata); err != nil {
+		t.Fatalf("Install() error = %v", err)
+	}
+	stamp := filepath.Join(stateDir, "stamp-"+TimerUnitName(metadata.Label))
+	if err := os.WriteFile(stamp, []byte(""), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := backend.Remove(ctx, metadata.Label); err != nil {
+		t.Fatalf("Remove() must tolerate systemctl clean refusal: %v", err)
+	}
+	if _, err := os.Stat(stamp); !os.IsNotExist(err) {
+		t.Fatalf("persistent stamp should be removed, stat err = %v", err)
+	}
+	// Second removal cycle on the same label must also be clean (idempotence).
+	if err := backend.Install(ctx, metadata); err != nil {
+		t.Fatalf("re-Install() error = %v", err)
+	}
+	if err := backend.Remove(ctx, metadata.Label); err != nil {
+		t.Fatalf("second Remove() error = %v", err)
+	}
+}

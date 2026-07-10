@@ -161,6 +161,9 @@ func (b *SystemdBackend) Remove(ctx context.Context, label string) error {
 	if err := errors.Join(disableErr, stopErr, cleanErr); err != nil {
 		return fmt.Errorf("stop job before removal: %w", err)
 	}
+	// Removal must not fail on cleanup hygiene: cleanTimerState above only
+	// reports filesystem errors; systemctl-clean refusals (no state, unit
+	// already unloaded) are tolerated inside it.
 	if err := b.removeUnitFiles(label); err != nil {
 		return err
 	}
@@ -182,9 +185,33 @@ func (b *SystemdBackend) RollbackInstall(ctx context.Context, label string) erro
 
 // cleanTimerState removes Persistent= timestamp state before a timer unit is
 // uninstalled, so reusing a label cannot inherit an old calendar deadline.
+// It is idempotent: systemctl-clean refusals (no matching state, unit already
+// unloaded) are tolerated because the stamp file is also removed directly;
+// only a real filesystem error is reported.
 func (b *SystemdBackend) cleanTimerState(ctx context.Context, label string) error {
-	_, err := b.systemctl(ctx, "clean", "--what=state", TimerUnitName(label))
-	return err
+	// Best-effort: fails on units without state or already-unloaded units,
+	// and those refusals must not block removal.
+	_, _ = b.systemctl(ctx, "clean", "--what=state", TimerUnitName(label))
+	stamp := filepath.Join(b.timerStateDir(), "stamp-"+TimerUnitName(label))
+	if err := os.Remove(stamp); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove persistent timer stamp: %w", err)
+	}
+	return nil
+}
+
+// timerStateDir returns where the user manager stores Persistent= stamp files.
+func (b *SystemdBackend) timerStateDir() string {
+	if b.StateDir != "" {
+		return b.StateDir
+	}
+	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
+		return filepath.Join(xdg, "systemd", "timers")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".local", "share", "systemd", "timers")
 }
 
 func (b *SystemdBackend) removeUnitFiles(label string) error {

@@ -73,3 +73,5 @@
 {"ts":"2026-07-10T08:35:23Z","event":"unclaimed","cmd":"done","file":"laps.json","lap":"then-2f7d","title":"rerun real-systemd wake-timer verification on qualifying user-manager host","assignee":"verify","scope":"root","detail":{"reason":"completed"},"session":""}
 {"ts":"2026-07-10T08:35:55Z","event":"claimed","cmd":"claim","file":"laps.json","lap":"then-975b","title":"provide qualifying user-manager host for real-systemd verification","assignee":"senior","scope":"root","detail":{},"session":""}
 {"ts":"2026-07-10T08:41:47Z","event":"created","cmd":"add","file":"laps.json","lap":"then-bb63","title":"Fix real-systemd cleanup porta...","scope":"root","detail":{"position":"head"},"session":""}
+{"ts":"2026-07-10T08:42:40Z","event":"unclaimed","cmd":"claim","file":"laps.json","lap":"then-975b","title":"provide qualifying user-manager host for real-systemd verification","assignee":"senior","scope":"root","detail":{"reason":"replaced"},"session":""}
+{"ts":"2026-07-10T08:42:40Z","event":"claimed","cmd":"claim","file":"laps.json","lap":"then-bb63","title":"Fix real-systemd cleanup porta...","scope":"root","detail":{},"session":""}
