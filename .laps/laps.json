@@ -79,10 +79,22 @@
       "title": "verify wake-timer semantics on a provisioned reachable systemd user manager",
       "description": "Run on Linux where systemctl is installed, XDG_RUNTIME_DIR is set, and systemctl --user show-environment succeeds. Execute THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. Capture non-skipped evidence of three serialized oneshot runs, each later start \u003e=200ms after the prior completion, plus cleanup (disable/stop/clean state/unlink/daemon-reload/reset-failed). Current host is unqualified: systemctl absent and XDG_RUNTIME_DIR unset.",
       "assignee": "verify",
-      "isDone": false,
+      "isDone": true,
       "order": -65536,
       "createdAt": "2026-07-10T08:11:02.701679893Z",
-      "updatedAt": "2026-07-10T08:11:02.701679893Z",
+      "updatedAt": "2026-07-10T08:12:59.471942936Z",
+      "completedAt": "2026-07-10T08:12:59.471942936Z"
+    },
+    {
+      "kind": "lap",
+      "id": "then-2bb3",
+      "title": "verify wake-timer semantics on a provisioned systemd user manager",
+      "description": "Run only on Linux with systemctl installed, XDG_RUNTIME_DIR set, and systemctl --user show-environment succeeding. Execute THENN_SYSTEMD_INTEGRATION=1 go test -v -tags=integration ./internal/job -run TestRealSystemd. Record non-skipped output proving three serialized oneshot runs and each later start is \u003e=200ms after previous completion; also verify cleanup executes: disable --now, stop service, clean --what=state, unlink service/timer, daemon-reload, reset-failed. The prior gate skipped because this host lacks systemctl and XDG_RUNTIME_DIR.",
+      "assignee": "verify",
+      "isDone": false,
+      "order": -131072,
+      "createdAt": "2026-07-10T08:12:59.398963827Z",
+      "updatedAt": "2026-07-10T08:12:59.398963827Z",
       "completedAt": null
     }
   ]
