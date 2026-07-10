@@ -96,7 +96,7 @@ thenn <duration> <command> [args...]
 
 ### Headless Jobs on Linux
 
-`thenn job` uses `systemd --user` timers. Jobs are labelled, stored under the user's `thenn` config directory, and installed as managed user units named like `thenn-job-<label>.timer` and `thenn-job-<label>.service`.
+`thenn job` requires Linux, the `systemctl` client, and a reachable `systemd --user` service manager. Minimal containers, WSL environments, and headless sessions without a systemd user bus are not supported unless a user manager has been configured. Jobs are labelled, stored under the user's `thenn` config directory, and installed as managed user units named like `thenn-job-<label>.timer` and `thenn-job-<label>.service`.
 
 Create jobs with verb-first scheduling commands:
 
@@ -140,8 +140,25 @@ Notes:
 *   `pause` disables and stops the timer; it does not kill a currently running service command.
 *   `resume` enables and starts the timer again.
 *   `run` asks systemd to start the service immediately.
+*   `remove` stops both the timer and any currently running service command before deleting the job.
 *   Logs come from `journalctl --user-unit thenn-job-<label>.service`.
-*   On systems where user services should run while logged out, you may need to enable lingering with `loginctl enable-linger $USER`.
+
+Timer behavior:
+
+*   `every <duration>` is a fixed-delay schedule. Its first run starts after one full interval, and each later interval starts when the prior command finishes. A slow `Type=oneshot` command therefore never overlaps itself and does not build a queue of missed runs.
+*   `every` measures active monotonic time. Time spent suspended, powered off, or without a running user manager does not count; after the user manager is started again, the initial interval starts fresh. A realtime `Persistent=true` timer is intentionally not used because systemd persistence only applies to `OnCalendar=` and arbitrary durations do not have an equivalent wall-clock cadence.
+*   Calendar schedules (`daily`, `weekdays`, `weekly`, and `once`) use `Persistent=true`. If one or more calendar events pass while the timer is inactive, systemd coalesces them into one catch-up activation when the timer returns. If the same oneshot service is already active at an event, systemd does not start a parallel copy.
+*   Timers use `AccuracySec=1s`, `RandomizedDelaySec=0`, and `WakeSystem=false`: there is no intentional randomized delay, events may still be coalesced within a one-second accuracy window, and jobs do not wake suspended hardware. Calendar events that pass during suspend run after resume; `every` waits out its remaining active-time interval.
+
+Jobs created by an older `thenn` release keep their previously installed unit files. Remove and recreate an existing `every` job once to adopt the fixed-delay policy.
+
+For unattended jobs, the user manager must exist for the whole unattended period. Enable lingering with `loginctl enable-linger "$USER"` (authorization may be required), then verify it with `loginctl show-user "$USER" -p Linger`. Lingering starts the user manager at boot and keeps it after logout; it does not guarantee network availability, preserve removable working directories, or wake a powered-off machine. Commands should handle those dependencies and retries themselves.
+
+The opt-in real-systemd integration test installs uniquely named runtime user units and verifies fixed-delay serialization:
+
+```bash
+THENN_SYSTEMD_INTEGRATION=1 go test -tags=integration ./internal/job -run TestRealSystemd
+```
 
 ---
 

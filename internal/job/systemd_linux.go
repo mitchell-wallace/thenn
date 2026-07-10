@@ -4,6 +4,7 @@ package job
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,13 +35,41 @@ func (b *SystemdBackend) Install(ctx context.Context, metadata Metadata) error {
 	if err := os.MkdirAll(b.UnitDir, 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(b.UnitDir, ServiceUnitName(metadata.Label)), []byte(units.Service), 0o644); err != nil {
+	servicePath := filepath.Join(b.UnitDir, ServiceUnitName(metadata.Label))
+	timerPath := filepath.Join(b.UnitDir, TimerUnitName(metadata.Label))
+	if err := writeUnitFile(servicePath, units.Service); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(b.UnitDir, TimerUnitName(metadata.Label)), []byte(units.Timer), 0o644); err != nil {
+	if err := writeUnitFile(timerPath, units.Timer); err != nil {
+		_ = os.Remove(servicePath)
 		return err
 	}
-	return b.DaemonReload(ctx)
+	if err := b.DaemonReload(ctx); err != nil {
+		_ = os.Remove(timerPath)
+		_ = os.Remove(servicePath)
+		return err
+	}
+	return nil
+}
+
+func writeUnitFile(path, contents string) error {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		return fmt.Errorf("systemd unit %s already exists; remove it before reusing this job label", path)
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := file.WriteString(contents); err != nil {
+		_ = file.Close()
+		_ = os.Remove(path)
+		return err
+	}
+	if err := file.Close(); err != nil {
+		_ = os.Remove(path)
+		return err
+	}
+	return nil
 }
 
 // DaemonReload reloads the user systemd manager.
@@ -112,22 +141,92 @@ func (b *SystemdBackend) Stop(ctx context.Context, label string) error {
 	return err
 }
 
-// Remove deletes service and timer unit files and reloads the user systemd manager.
+// StopService stops a currently running job command.
+func (b *SystemdBackend) StopService(ctx context.Context, label string) error {
+	if err := ValidateLabel(label); err != nil {
+		return err
+	}
+	_, err := b.systemctl(ctx, "stop", ServiceUnitName(label))
+	return err
+}
+
+// Remove stops the timer and service, deletes their unit files, and reloads systemd.
 func (b *SystemdBackend) Remove(ctx context.Context, label string) error {
 	if err := ValidateLabel(label); err != nil {
 		return err
 	}
-	_ = b.DisableNow(ctx, label)
-	if err := os.Remove(filepath.Join(b.UnitDir, TimerUnitName(label))); err != nil && !os.IsNotExist(err) {
-		return err
+	disableErr := b.DisableNow(ctx, label)
+	stopErr := b.StopService(ctx, label)
+	cleanErr := b.cleanTimerState(ctx, label)
+	if err := errors.Join(disableErr, stopErr, cleanErr); err != nil {
+		return fmt.Errorf("stop job before removal: %w", err)
 	}
-	if err := os.Remove(filepath.Join(b.UnitDir, ServiceUnitName(label))); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	if err := os.Remove(filepath.Join(b.UnitDir, "timers.target.wants", TimerUnitName(label))); err != nil && !os.IsNotExist(err) {
+	// Removal must not fail on cleanup hygiene: cleanTimerState above only
+	// reports filesystem errors; systemctl-clean refusals (no state, unit
+	// already unloaded) are tolerated inside it.
+	if err := b.removeUnitFiles(label); err != nil {
 		return err
 	}
 	return b.DaemonReload(ctx)
+}
+
+// RollbackInstall removes units owned by a failed create operation.
+func (b *SystemdBackend) RollbackInstall(ctx context.Context, label string) error {
+	if err := ValidateLabel(label); err != nil {
+		return err
+	}
+	_ = b.DisableNow(ctx, label)
+	_ = b.StopService(ctx, label)
+	_ = b.cleanTimerState(ctx, label)
+	removeErr := b.removeUnitFiles(label)
+	reloadErr := b.DaemonReload(ctx)
+	return errors.Join(removeErr, reloadErr)
+}
+
+// cleanTimerState removes Persistent= timestamp state before a timer unit is
+// uninstalled, so reusing a label cannot inherit an old calendar deadline.
+// It is idempotent: systemctl-clean refusals (no matching state, unit already
+// unloaded) are tolerated because the stamp file is also removed directly;
+// only a real filesystem error is reported.
+func (b *SystemdBackend) cleanTimerState(ctx context.Context, label string) error {
+	// Best-effort: fails on units without state or already-unloaded units,
+	// and those refusals must not block removal.
+	_, _ = b.systemctl(ctx, "clean", "--what=state", TimerUnitName(label))
+	stamp := filepath.Join(b.timerStateDir(), "stamp-"+TimerUnitName(label))
+	if err := os.Remove(stamp); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove persistent timer stamp: %w", err)
+	}
+	return nil
+}
+
+// timerStateDir returns where the user manager stores Persistent= stamp files.
+func (b *SystemdBackend) timerStateDir() string {
+	if b.StateDir != "" {
+		return b.StateDir
+	}
+	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
+		return filepath.Join(xdg, "systemd", "timers")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".local", "share", "systemd", "timers")
+}
+
+func (b *SystemdBackend) removeUnitFiles(label string) error {
+	paths := []string{
+		filepath.Join(b.UnitDir, TimerUnitName(label)),
+		filepath.Join(b.UnitDir, ServiceUnitName(label)),
+		filepath.Join(b.UnitDir, "timers.target.wants", TimerUnitName(label)),
+	}
+	var removeErrs []error
+	for _, path := range paths {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			removeErrs = append(removeErrs, err)
+		}
+	}
+	return errors.Join(removeErrs...)
 }
 
 // Status returns systemctl status output for the job timer.
@@ -148,5 +247,8 @@ func (b *SystemdBackend) Journal(ctx context.Context, label string, lines int) (
 		lines = 80
 	}
 	output, err := b.runner().Run(ctx, "journalctl", "--user-unit", ServiceUnitName(label), "--no-pager", "-n", fmt.Sprintf("%d", lines))
+	if commandNotFound(err) {
+		return "", ErrJournalctlNotFound
+	}
 	return string(output), err
 }

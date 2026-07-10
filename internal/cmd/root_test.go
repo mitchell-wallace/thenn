@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mitchell-wallace/thenn/internal/job"
 )
 
 var binaryPath string
@@ -286,6 +288,45 @@ func TestE2E_JobBareCommandShowsHelp(t *testing.T) {
 	}
 }
 
+func TestE2E_JobCommandsFailClearlyWithoutSystemd(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	tests := [][]string{
+		{"job", "every", "15m", "--label", "every-test", "--", "echo", "ok"},
+		{"job", "daily", "at", "9pm", "--label", "daily-test", "--", "echo", "ok"},
+		{"job", "once", "at", "2099-01-01", "--label", "once-test", "--", "echo", "ok"},
+		{"job", "weekly", "monday", "at", "9pm", "--label", "weekly-test", "--", "echo", "ok"},
+		{"job", "weekdays", "at", "9pm", "--label", "weekdays-test", "--", "echo", "ok"},
+		{"job", "list"},
+		{"job", "show", "missing"},
+		{"job", "run", "missing"},
+		{"job", "pause", "missing"},
+		{"job", "resume", "missing"},
+		{"job", "remove", "missing"},
+		{"job", "logs", "missing"},
+	}
+	wantStderr := "thenn: " + job.ErrSystemctlNotFound.Error() + "\n"
+	for _, args := range tests {
+		args := args
+		t.Run(strings.Join(args[1:], "_"), func(t *testing.T) {
+			stdout, stderr, code, err := runThenn(args...)
+			if err != nil {
+				t.Fatalf("run failed: %v", err)
+			}
+			if code != 1 {
+				t.Fatalf("exit code = %d, want 1; stdout %q stderr %q", code, stdout, stderr)
+			}
+			if stdout != "" {
+				t.Fatalf("stdout = %q, want empty", stdout)
+			}
+			if stderr != wantStderr {
+				t.Fatalf("stderr = %q, want one clear error %q", stderr, wantStderr)
+			}
+		})
+	}
+}
+
 func TestE2E_JobCreateAndManageWithFakeSystemd(t *testing.T) {
 	configHome := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", configHome)
@@ -323,7 +364,7 @@ func TestE2E_JobCreateAndManageWithFakeSystemd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read timer unit: %v", err)
 	}
-	if !strings.Contains(string(timer), "OnUnitActiveSec=15m") {
+	if !strings.Contains(string(timer), "OnUnitInactiveSec=15m") {
 		t.Fatalf("timer unit missing interval:\n%s", timer)
 	}
 
@@ -383,6 +424,7 @@ func TestE2E_JobCreateAndManageWithFakeSystemd(t *testing.T) {
 		"systemctl --user status thenn-job-backup.timer thenn-job-backup.service",
 		"journalctl --user-unit thenn-job-backup.service --no-pager -n 80",
 		"systemctl --user disable --now thenn-job-backup.timer",
+		"systemctl --user stop thenn-job-backup.service",
 		"systemctl --user start thenn-job-backup.service",
 	} {
 		if !strings.Contains(log, want) {
@@ -443,6 +485,12 @@ exit 0
 	}
 	if _, err := os.Stat(filepath.Join(configHome, "thenn", "jobs", "broken.json")); !os.IsNotExist(err) {
 		t.Fatalf("metadata was not rolled back, stat err = %v stderr = %s", err, stderr)
+	}
+	unitDir := filepath.Join(configHome, "systemd", "user")
+	for _, name := range []string{"thenn-job-broken.service", "thenn-job-broken.timer"} {
+		if _, err := os.Stat(filepath.Join(unitDir, name)); !os.IsNotExist(err) {
+			t.Fatalf("unit %s was not rolled back, stat err = %v stderr = %s", name, err, stderr)
+		}
 	}
 }
 

@@ -1,0 +1,44 @@
+# Rally repo-level config — OVERRIDES ONLY.
+#
+# Your main rally configuration lives in the user-level file:
+#   ~/.config/rally/config.toml   (or $XDG_CONFIG_HOME/rally/config.toml)
+#
+# Rally loads that user file first, then applies anything set HERE on top of it
+# (per key: a value here wins over the same key in the user file). Leave a
+# setting commented out to inherit it from the user file. Use this file only for
+# settings that should differ in THIS repository.
+#
+# Uncomment and edit any of the examples below to override them for this repo:
+#
+# schema_version = 2
+#
+# [defaults]
+# iterations = 5
+# mix = "cc cx"
+#
+# [routes]
+# # Map a role to an ordered driver fallback list (first that works wins).
+# # Built-in role names: intern, junior, senior, architect, review, verify, qa, recovery.
+# intern = ["op:zai", "op:kimi"]
+# junior = ["op:zai", "cl:sonnet"]
+# senior = ["cl:opus", "cx:g55"]
+# verify = ["cx:g55"]
+#
+# [providers]
+# # Group drivers that share one usage-limit budget. When any member hits a
+# # usage limit, every member is benched until the reset — so rally stops
+# # retrying models that draw from the same exhausted account, even across
+# # harnesses. Entries are model aliases, harness:model specs, or wildcards
+# # such as codex:* and opencode-go/*.
+# codex = ["g55", "g54", "opencode:openai/gpt-5.5"]
+# # Use the table form to disable a whole provider (e.g. a known monthly cap,
+# # or to conserve usage while another session handles a large task):
+# # [providers.claude]
+# # models   = ["cl:opus", "cl:sonnet"]
+# # disabled = true
+#
+# [reliability]
+# retry_budget = 5
+#
+# [telemetry]
+# new_relic_app_name = ""
