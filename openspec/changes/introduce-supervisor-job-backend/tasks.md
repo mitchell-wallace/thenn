@@ -6,10 +6,10 @@
 
 ## 2. Build the supervisor scheduler core
 
-- [ ] 2.1 Add a pure, clock-injected scheduler under `internal/job/supervisor` for fixed-delay `every` schedules and the normalized daily, weekdays, weekly, and once calendar shapes.
-- [ ] 2.2 Add persisted runtime-state modeling for last start, last finish, next due, exit status, and scheduler errors.
-- [ ] 2.3 Enforce until expiry, one calendar catch-up after downtime, no interval catch-up, strict non-overlap, and safe behavior across wall-clock jumps.
-- [ ] 2.4 Add table-driven tests covering every schedule kind, until expiry, catch-up-once, non-overlap, unsupported calendar shapes, and forward/backward clock jumps.
+- [x] 2.1 Add a pure, clock-injected scheduler under `internal/job/supervisor` for fixed-delay `every` schedules and the normalized daily, weekdays, weekly, and once calendar shapes.
+- [x] 2.2 Add persisted runtime-state modeling for last start, last finish, next due, exit status, and scheduler errors.
+- [x] 2.3 Enforce until expiry, one calendar catch-up after downtime, no interval catch-up, strict non-overlap, and safe behavior across wall-clock jumps.
+- [x] 2.4 Add table-driven tests covering every schedule kind, until expiry, catch-up-once, non-overlap, unsupported calendar shapes, and forward/backward clock jumps.
 
 ## 3. Add the supervisor daemon and backend
 
