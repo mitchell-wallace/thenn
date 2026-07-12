@@ -60,6 +60,11 @@ func NewSystemdBackend() (*SystemdBackend, error) {
 	return newSystemdBackend()
 }
 
+// Name returns the stable identifier for the systemd backend.
+func (b *SystemdBackend) Name() string {
+	return "systemd"
+}
+
 // RenderUnits renders the service and timer units for metadata.
 func RenderUnits(metadata Metadata, binaryPath string) (UnitFiles, error) { //nolint:gocritic // Rendering from a value avoids backend-side mutation.
 	if err := metadata.Validate(); err != nil {

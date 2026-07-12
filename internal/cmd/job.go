@@ -276,7 +276,7 @@ var jobRemoveCmd = &cobra.Command{
 	},
 }
 
-func rollbackJobCreate(ctx context.Context, store *job.Store, backend *job.SystemdBackend, label string) {
+func rollbackJobCreate(ctx context.Context, store *job.Store, backend job.Backend, label string) {
 	_ = backend.RollbackInstall(ctx, label)
 	_ = store.Delete(label)
 }
@@ -343,7 +343,7 @@ Timer policy:
 	},
 }
 
-func newJobStoreAndBackend() (*job.Store, *job.SystemdBackend, error) {
+func newJobStoreAndBackend() (*job.Store, job.Backend, error) {
 	store, err := job.NewStore()
 	if err != nil {
 		return nil, nil, err
@@ -355,7 +355,7 @@ func newJobStoreAndBackend() (*job.Store, *job.SystemdBackend, error) {
 	return store, backend, nil
 }
 
-func newAvailableJobStoreAndBackend(ctx context.Context) (*job.Store, *job.SystemdBackend, error) {
+func newAvailableJobStoreAndBackend(ctx context.Context) (*job.Store, job.Backend, error) {
 	store, backend, err := newJobStoreAndBackend()
 	if err != nil {
 		return nil, nil, err
@@ -366,12 +366,12 @@ func newAvailableJobStoreAndBackend(ctx context.Context) (*job.Store, *job.Syste
 	return store, backend, nil
 }
 
-func loadAvailableJob(ctx context.Context, label string) (job.Metadata, *job.SystemdBackend, error) {
+func loadAvailableJob(ctx context.Context, label string) (job.Metadata, job.Backend, error) {
 	_, backend, metadata, err := loadAvailableJobWithStore(ctx, label)
 	return metadata, backend, err
 }
 
-func loadAvailableJobWithStore(ctx context.Context, label string) (*job.Store, *job.SystemdBackend, job.Metadata, error) {
+func loadAvailableJobWithStore(ctx context.Context, label string) (*job.Store, job.Backend, job.Metadata, error) {
 	store, backend, err := newAvailableJobStoreAndBackend(ctx)
 	if err != nil {
 		return nil, nil, job.Metadata{}, err

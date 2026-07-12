@@ -43,7 +43,7 @@ var (
 
 type jobTUIModel struct {
 	store         *job.Store
-	backend       *job.SystemdBackend
+	backend       job.Backend
 	jobs          []job.Metadata
 	selected      int
 	tab           jobTUITab
